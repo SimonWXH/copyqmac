@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastAttemptedShortcut: HotKeyShortcut?
     private var lastAttemptedPlainTextShortcut: HotKeyShortcut?
     private var lastAppliedLanguage: AppLanguage?
+    private var lastAppliedWindowLayout: WindowLayout?
     /// The menu-bar notice for a blocked API-key capture and the resting
     /// appearance it returns to.
     private var statusItemNotice: StatusItemNotice!
@@ -300,9 +301,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         applyStatusItemAppearance()
 
-        if preferences.language != lastAppliedLanguage {
+        let languageChanged = preferences.language != lastAppliedLanguage
+        let layoutChanged = preferences.windowLayout != lastAppliedWindowLayout
+        if languageChanged || layoutChanged {
             lastAppliedLanguage = preferences.language
+            lastAppliedWindowLayout = preferences.windowLayout
             setupMainMenu()
+        }
+        if languageChanged {
             installStatusMenu(language: preferences.language)
             statusItem?.button?.image?.accessibilityDescription = Localization.string(
                 .statusItemAccessibilityDescription,

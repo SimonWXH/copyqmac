@@ -95,6 +95,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case menuTabsRemoveTab
     case menuTabsMoveTabLeft
     case menuTabsMoveTabRight
+    case menuTabsMoveTabUp
+    case menuTabsMoveTabDown
     case menuTabsUseAsCaptureTab
 
     // Menu Bar: Help
@@ -717,6 +719,10 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "Move Tab Left"
         case .menuTabsMoveTabRight:
             return "Move Tab Right"
+        case .menuTabsMoveTabUp:
+            return "Move Tab Up"
+        case .menuTabsMoveTabDown:
+            return "Move Tab Down"
         case .menuTabsUseAsCaptureTab:
             return "Use as Capture Tab"
 
@@ -1772,6 +1778,10 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "向左移动标签页"
         case .menuTabsMoveTabRight:
             return "向右移动标签页"
+        case .menuTabsMoveTabUp:
+            return "上移标签页"
+        case .menuTabsMoveTabDown:
+            return "下移标签页"
         case .menuTabsUseAsCaptureTab:
             return "用作捕获标签页"
 

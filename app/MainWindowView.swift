@@ -379,11 +379,6 @@ enum TabContextMenu {
         let useAsCaptureTab: String
         let compareSyncFolder: String
         let removeTab: String
-
-        var moveUp: String { moveBackward }
-        var moveDown: String { moveForward }
-        var moveLeft: String { moveBackward }
-        var moveRight: String { moveForward }
     }
 
     static func titles(for layout: Layout, language: AppLanguage) -> Titles {

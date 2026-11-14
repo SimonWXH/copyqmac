@@ -84,6 +84,78 @@ func registerMainMenuTests() {
         }
     }
 
+    TestRunner.add("the Tabs menu names each move by the window layout") {
+        MainActor.assumeIsolated {
+            NSApplication.shared.setActivationPolicy(.prohibited)
+            let history: ClipboardHistory
+            do {
+                history = ClipboardHistory(store: try ClipboardStore(inMemory: true))
+            } catch {
+                TestRunner.fail("could not open the in-memory store: \(error)")
+                return
+            }
+            let actions = AppActions(
+                model: AppModel(history: history, isAccessibilityTrusted: { true }),
+                windowController: MainMenuWindowControllerStub(),
+                presentPreferences: {}
+            )
+
+            @MainActor func moveItems(
+                _ layout: WindowLayout,
+                language: AppLanguage
+            ) -> [(title: String, backward: Bool, key: String, mask: NSEvent.ModifierFlags)] {
+                actions.model.updatePreferences { $0.windowLayout = layout }
+                let menu = MainMenuBuilder.build(actions: actions, language: language)
+                let tabs = menu.items.first {
+                    $0.title == Localization.string(.menuTabs, language: language)
+                }?.submenu
+                let moving = tabs?.items.filter {
+                    $0.action == #selector(AppActions.moveTabLeft(_:))
+                        || $0.action == #selector(AppActions.moveTabRight(_:))
+                } ?? []
+                return moving.map { item in
+                    (
+                        item.title,
+                        item.action == #selector(AppActions.moveTabLeft(_:)),
+                        item.keyEquivalent,
+                        item.keyEquivalentModifierMask
+                    )
+                }
+            }
+
+            let leftArrow = String(UnicodeScalar(NSLeftArrowFunctionKey)!)
+            let rightArrow = String(UnicodeScalar(NSRightArrowFunctionKey)!)
+            let cases: [(WindowLayout, AppLanguage, [String])] = [
+                (.layoutA, .english, ["Move Tab Left", "Move Tab Right"]),
+                (.layoutA, .simplifiedChinese, ["向左移动标签页", "向右移动标签页"]),
+                (.layoutB, .english, ["Move Tab Up", "Move Tab Down"]),
+                (.layoutB, .simplifiedChinese, ["上移标签页", "下移标签页"]),
+            ]
+            for (layout, language, titles) in cases {
+                let items = moveItems(layout, language: language)
+                expectEqual(
+                    items.map(\.title),
+                    titles,
+                    "\(layout) in \(language) names each move for its axis"
+                )
+                expectEqual(
+                    items.map(\.backward),
+                    [true, false],
+                    "the first move goes backward and the second forward"
+                )
+                expectEqual(
+                    items.map(\.key),
+                    [leftArrow, rightArrow],
+                    "each move keeps its arrow shortcut"
+                )
+                expect(
+                    items.allSatisfy { $0.mask == [.command, .option] },
+                    "each move keeps Command-Option"
+                )
+            }
+        }
+    }
+
     TestRunner.add("the shortcut guard agrees with AppKit's key-equivalent dispatch") {
         MainActor.assumeIsolated {
             NSApplication.shared.setActivationPolicy(.prohibited)
