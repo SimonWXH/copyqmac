@@ -27,9 +27,11 @@ An app bundle can be signed ad hoc:
 codesign --force --sign - CopyQmac.app
 ```
 
-An Apple ID is only needed to download Xcode from the App Store, and a paid
-Developer Program membership is only needed to notarize a build for distribution
-to other machines. Neither applies here.
+An Apple ID is only needed to download Xcode from the App Store. A paid
+Developer Program membership is only needed for notarization, which is what
+would spare downloaders the first-launch authorization. The project has no
+membership, so published releases stay ad-hoc signed and unnotarized - see
+[First-launch authorization](#first-launch-authorization-ad-hoc-signed-builds).
 
 ## Commands
 
@@ -144,9 +146,15 @@ overrides. Defaults derive from `uname -m` and `xcrun --show-sdk-path`.
 
 ### Versioning
 
-The single source of truth for the application version is the `VERSION` file at the repository root. During `make build`, the version string from `VERSION` is stamped into the application bundle's `Info.plist` as both `CFBundleShortVersionString` and `CFBundleVersion`. No version literals exist anywhere else in the tree.
+The single source of truth for the application version is the `VERSION` file at
+the repository root. During `make build`, the version string from `VERSION` is
+stamped into the application bundle's `Info.plist` as both
+`CFBundleShortVersionString` and `CFBundleVersion`. The application version is
+not repeated anywhere else in the tree.
 
-The application's About panel (`orderFrontStandardAboutPanel`) displays this version string read directly from the bundle, matching the release downloaded by the user.
+The application's About panel (`orderFrontStandardAboutPanel`) displays this
+version string read directly from the bundle, matching the release downloaded by
+the user.
 
 ### Disk image (.dmg) packaging
 
@@ -156,21 +164,31 @@ The application's About panel (`orderFrontStandardAboutPanel`) displays this ver
 make dmg
 ```
 
-This creates a staging directory containing `CopyQmac.app` and a symlink to `/Applications`, then invokes `hdiutil create` with the `UDZO` format to produce `build/CopyQMac-<version>.dmg`.
+This creates a staging directory containing `CopyQmac.app` and a symlink to
+`/Applications`, then invokes `hdiutil create` with the `UDZO` format to produce
+`build/CopyQMac-<version>.dmg`.
 
 ### Release workflow (GitHub Actions)
 
-Releases are published automatically by `.github/workflows/release.yml` whenever a tag matching `v*` is pushed:
+Releases are published automatically by `.github/workflows/release.yml`
+whenever a tag matching `v*` is pushed:
 
 1. The runner checks out the repository.
-2. Fails the job unless the tag minus its leading `v` equals `VERSION`, so bump `VERSION` before tagging.
+2. Fails the job unless the tag minus its leading `v` equals `VERSION`, so bump
+   `VERSION` before tagging.
 3. Runs `make test` and `make build`.
 4. Packages the disk image with `make dmg`.
-5. Creates a GitHub Release for the tag using `gh release create`, attaches `CopyQMac-<version>.dmg`, marks the release as a **pre-release** (beta), and uses the notes in `.github/release-notes.md`, which explain the ad-hoc signature and first-launch steps.
+5. Creates a GitHub Release for the tag using `gh release create`, attaches
+   `CopyQMac-<version>.dmg`, marks the release as a **pre-release** (beta), and
+   uses the notes in `.github/release-notes.md`, which explain the ad-hoc
+   signature and first-launch steps.
 
 ### First-launch authorization (ad-hoc signed builds)
 
-Because the project does not use a paid Apple Developer account, releases are ad-hoc signed and unnotarized, so macOS blocks the first launch of a downloaded build; the exact authorization steps live in `.github/release-notes.md`, which is the body of every release.
+Because the project does not use a paid Apple Developer account, releases are
+ad-hoc signed and unnotarized, so macOS blocks the first launch of a downloaded
+build; the exact authorization steps live in `.github/release-notes.md`, which is
+the body of every release.
 
 ## Tests
 
@@ -303,9 +321,10 @@ Tools. `tests/` contains a small assertion harness and the suites:
   no login item is touched while testing; the launch-source decision that keeps
   a login launch in the menu bar is checked against a synthetic Apple event
 - the application menu and the activation policy: the built main menu contains
-  the application, File, Edit, Item, Tabs, and Help menus with Quit and the AppKit
-  help menu, no two items in the main, row, or status menus resolve to the same
-  key equivalent (that guard is itself checked against AppKit's own key-equivalent
+  the application, File, Edit, Item, Tabs, and Help menus with About opening the
+  standard about panel, Quit, and the AppKit help menu, no two items in the
+  main, row, or status menus resolve to the same key equivalent (that guard is
+  itself checked against AppKit's own key-equivalent
   dispatch), and the policy is regular exactly while an app window is visible and
   accessory again once the last one closes (so the menu bar is drawn and the Dock
   icon is temporary)
