@@ -51,11 +51,11 @@ CopyQ Mac 会在排除忽略列表中的特定内容后，完整保留可随时�
 - 支持浅色与深色外观，可跟随系统自动切换或手动固定。
 - 支持双语界面（English 与 简体中文），可在偏好设置中随时切换。
 
-完整的功能文档、实现规则与边缘情况处理，详见[完整功能文档（英文）](docs/features.md)。
+更完整的功能说明、实现规则与边缘情况处理，详见[功能文档（英文）](docs/features.md)。
 
 ## 与 CopyQ 的关系
 
-CopyQ Mac 是一个独立的 Swift 实现，它遵循 CopyQ 的操作行为，并读写其剪贴板数据格式，使同一份历史记录可以在两者之间无缝迁移。它不是 CopyQ 的官方产品，也未获得 CopyQ 项目的附属关联或背书认可。实现中凡移植或转译自 CopyQ 源码的部分，均继续遵循 GPL-3.0 协议；相关署名记录在 [`NOTICE`](NOTICE) 中。
+CopyQ Mac 是一个独立的 Swift 实现，它遵循 CopyQ 的操作行为，并读写其剪贴板数据格式，使同一份历史记录可以在两者之间无缝迁移。它不是 CopyQ 的官方产品，也未获得 CopyQ 项目的附属关联或背书认可。实现中凡移植或转译自 CopyQ 源码的部分，均继续遵循 GPL-3.0 协议；相关署名记录在 `NOTICE` 中。
 
 暂未实现的功能：CopyQ 的 JavaScript 命令与脚本 API、Qt 插件系统、加密、网络特性以及跨平台构建。CopyQ Mac 仅运行于 macOS。
 
@@ -69,9 +69,9 @@ CopyQ Mac 是一个独立的 Swift 实现，它遵循 CopyQ 的操作行为，�
 ## 构建
 
 ```sh
-make build    # compile and assemble CopyQmac.app
-make test     # run the headless test suite
-make run      # launch the built app
+make build    # 构建并打包 CopyQmac.app
+make test     # 运行无头测试套件
+make run      # 启动构建好的应用
 make clean
 ```
 
@@ -89,12 +89,12 @@ ditto build/CopyQmac.app /Applications/CopyQmac.app
 ## 项目结构
 
 ```
-app/          SwiftUI and AppKit application sources
-core/         Clipboard model, storage, tabs, preferences and search (AppKit-free)
-tests/        Headless test suite
-tools/        Build and asset tooling, including the app icon generator
-docs/         Feature reference, build notes, architecture and screenshots
-resources/    App icon shipped in the bundle
+app/          SwiftUI 与 AppKit 应用源码
+core/         剪贴板模型、存储、标签页、偏好设置与搜索（不依赖 AppKit）
+tests/        无头测试套件
+tools/        构建与资源工具，包括应用图标生成器
+docs/         功能参考文档、构建说明、架构与截图
+resources/    随应用分发的图标
 ```
 
 ## 许可证
