@@ -255,20 +255,30 @@ enum MainMenuBuilder {
         )
         removeTab.target = actions
         tabsMenu.addItem(.separator())
-        let moveLeft = tabsMenu.addItem(
-            withTitle: Localization.string(.menuTabsMoveTabLeft, language: lang),
+        let moveBackwardKey: CatalogKey
+        let moveForwardKey: CatalogKey
+        switch actions.model.preferences.windowLayout {
+        case .layoutA:
+            moveBackwardKey = .menuTabsMoveTabLeft
+            moveForwardKey = .menuTabsMoveTabRight
+        case .layoutB:
+            moveBackwardKey = .menuTabsMoveTabUp
+            moveForwardKey = .menuTabsMoveTabDown
+        }
+        let moveBackward = tabsMenu.addItem(
+            withTitle: Localization.string(moveBackwardKey, language: lang),
             action: #selector(AppActions.moveTabLeft(_:)),
             keyEquivalent: String(UnicodeScalar(NSLeftArrowFunctionKey)!)
         )
-        moveLeft.keyEquivalentModifierMask = [.command, .option]
-        moveLeft.target = actions
-        let moveRight = tabsMenu.addItem(
-            withTitle: Localization.string(.menuTabsMoveTabRight, language: lang),
+        moveBackward.keyEquivalentModifierMask = [.command, .option]
+        moveBackward.target = actions
+        let moveForward = tabsMenu.addItem(
+            withTitle: Localization.string(moveForwardKey, language: lang),
             action: #selector(AppActions.moveTabRight(_:)),
             keyEquivalent: String(UnicodeScalar(NSRightArrowFunctionKey)!)
         )
-        moveRight.keyEquivalentModifierMask = [.command, .option]
-        moveRight.target = actions
+        moveForward.keyEquivalentModifierMask = [.command, .option]
+        moveForward.target = actions
         tabsMenu.addItem(.separator())
         tabsMenu.addItem(
             withTitle: Localization.string(.menuTabsUseAsCaptureTab, language: lang),

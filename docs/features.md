@@ -40,11 +40,15 @@ Detailed reference for CopyQ Mac features, implementation behaviours, and data m
   text-only entry looks exactly as before. Search, the stored payload, and
   paste-back are unchanged.
 - **Tabs.** Create, rename, reorder, and remove tabs, and choose which
-  tab captures made on this machine are written into. A tab's sync folder is the
-  only sync control: fill it in and the tab imports from it and writes captures,
-  new items, and edits back to it; leave it empty and the tab stays local. The
-  folder field saves what it holds after a short pause, as well as on Return and
-  when it loses focus, so a pasted path is not lost by clicking away.
+  tab captures made on this machine are written into. The tab context menu and
+  the Tabs menu name each move for the layout's axis - Move Left / Move Right
+  above the top tab strip and Move Up / Move Down in the sidebar - while both
+  shift the tab one slot toward the start or the end of the list. A tab's sync
+  folder is the only sync control: fill it in and the tab imports from it and
+  writes captures, new items, and edits back to it; leave it empty and the tab
+  stays local. The folder field saves what it holds after a short pause, as well
+  as on Return and when it loses focus, so a pasted path is not lost by clicking
+  away.
 - **Notes.** Every entry has an editable note (Command-E or Item ▸ Edit
   Note), saved as you type and included in search.
 - **Images.** Image entries show a thumbnail in the list and a larger

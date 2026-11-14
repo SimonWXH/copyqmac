@@ -1146,9 +1146,11 @@ rather than the system formatter's. The picker in Preferences ▸ History ▸
 Language names each language in its own script. Views and dialogs read
 `model.preferences.language` when they render and pass it into the lookup, so
 the picker's change repaints the open surfaces immediately instead of waiting
-for a relaunch; changing the stored language also makes `AppDelegate` rebuild
-the main menu and the status menu and update the status item's tooltip and
-accessibility description and the preferences window title.
+for a relaunch. `AppDelegate` rebuilds the main menu when the stored language or
+the window layout changes, because the Tabs menu names each tab move for the
+layout's axis; a language change also rebuilds the status menu and updates the
+status item's tooltip and accessibility description and the preferences window
+title.
 
 Some displayed text is assembled by `core/` rather than looked up: failure
 records, sync diagnostics, relocation errors, and launch-at-login reasons built

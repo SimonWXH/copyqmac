@@ -48,6 +48,7 @@ registerStatusItemNoticeTests()
 registerLocalizationTests()
 registerDesignTokensTests()
 registerWindowLayoutTests()
+registerTabContextMenuTests()
 
 print("CopyQmac core tests")
 TestRunner.run()

@@ -366,6 +366,38 @@ private struct SidebarTabView: View {
     }
 }
 
+enum TabContextMenu {
+    struct Titles: Equatable, Sendable {
+        let rename: String
+        let moveBackward: String
+        let moveForward: String
+        let useAsCaptureTab: String
+        let compareSyncFolder: String
+        let removeTab: String
+    }
+
+    static func titles(for layout: WindowLayout, language: AppLanguage) -> Titles {
+        let moveBackwardKey: CatalogKey
+        let moveForwardKey: CatalogKey
+        switch layout {
+        case .layoutB:
+            moveBackwardKey = .tabContextMoveUp
+            moveForwardKey = .tabContextMoveDown
+        case .layoutA:
+            moveBackwardKey = .tabContextMoveLeft
+            moveForwardKey = .tabContextMoveRight
+        }
+        return Titles(
+            rename: Localization.string(.settingsTabRenameButton, language: language),
+            moveBackward: Localization.string(moveBackwardKey, language: language),
+            moveForward: Localization.string(moveForwardKey, language: language),
+            useAsCaptureTab: Localization.string(.menuTabsUseAsCaptureTab, language: language),
+            compareSyncFolder: Localization.string(.tabContextCompareSyncFolder, language: language),
+            removeTab: Localization.string(.menuTabsRemoveTab, language: language)
+        )
+    }
+}
+
 private struct SidebarTabRow: View {
     @ObservedObject var model: AppModel
     let tab: ClipboardTab
@@ -426,27 +458,28 @@ private struct SidebarTabRow: View {
             return true
         }
         .contextMenu {
-            Button(Localization.string(.settingsTabRenameButton, language: lang)) {
+            let titles = TabContextMenu.titles(for: model.preferences.windowLayout, language: lang)
+            Button(titles.rename) {
                 model.pendingRenameTabID = tab.id
             }
-            Button(Localization.string(.tabContextMoveLeft, language: lang)) {
+            Button(titles.moveBackward) {
                 model.moveTab(tab, delta: -1)
             }
-            Button(Localization.string(.tabContextMoveRight, language: lang)) {
+            Button(titles.moveForward) {
                 model.moveTab(tab, delta: 1)
             }
             Divider()
-            Button(Localization.string(.menuTabsUseAsCaptureTab, language: lang)) {
+            Button(titles.useAsCaptureTab) {
                 model.setCaptureTab(tab)
             }
             .disabled(tab.isDefault)
             Divider()
-            Button(Localization.string(.tabContextCompareSyncFolder, language: lang)) {
+            Button(titles.compareSyncFolder) {
                 model.requestResyncTab(tab.id)
             }
             .disabled((tab.syncFolder ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             Divider()
-            Button(Localization.string(.menuTabsRemoveTab, language: lang), role: .destructive) {
+            Button(titles.removeTab, role: .destructive) {
                 model.removeTab(tab)
             }
             .disabled(model.tabs.count <= 1)
@@ -834,27 +867,28 @@ private struct TabChip: View {
             return true
         }
         .contextMenu {
-            Button(Localization.string(.settingsTabRenameButton, language: lang)) {
+            let titles = TabContextMenu.titles(for: model.preferences.windowLayout, language: lang)
+            Button(titles.rename) {
                 model.pendingRenameTabID = tab.id
             }
-            Button(Localization.string(.tabContextMoveLeft, language: lang)) {
+            Button(titles.moveBackward) {
                 model.moveTab(tab, delta: -1)
             }
-            Button(Localization.string(.tabContextMoveRight, language: lang)) {
+            Button(titles.moveForward) {
                 model.moveTab(tab, delta: 1)
             }
             Divider()
-            Button(Localization.string(.menuTabsUseAsCaptureTab, language: lang)) {
+            Button(titles.useAsCaptureTab) {
                 model.setCaptureTab(tab)
             }
             .disabled(tab.isDefault)
             Divider()
-            Button(Localization.string(.tabContextCompareSyncFolder, language: lang)) {
+            Button(titles.compareSyncFolder) {
                 model.requestResyncTab(tab.id)
             }
             .disabled((tab.syncFolder ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             Divider()
-            Button(Localization.string(.menuTabsRemoveTab, language: lang), role: .destructive) {
+            Button(titles.removeTab, role: .destructive) {
                 model.removeTab(tab)
             }
             .disabled(model.tabs.count <= 1)

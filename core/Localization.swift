@@ -95,6 +95,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case menuTabsRemoveTab
     case menuTabsMoveTabLeft
     case menuTabsMoveTabRight
+    case menuTabsMoveTabUp
+    case menuTabsMoveTabDown
     case menuTabsUseAsCaptureTab
 
     // Menu Bar: Help
@@ -436,6 +438,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case tabChipCaptureHelp
     case tabContextMoveLeft
     case tabContextMoveRight
+    case tabContextMoveUp
+    case tabContextMoveDown
     case tabContextCompareSyncFolder
 
     // Main Window: Filter bar and empty state
@@ -715,6 +719,10 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "Move Tab Left"
         case .menuTabsMoveTabRight:
             return "Move Tab Right"
+        case .menuTabsMoveTabUp:
+            return "Move Tab Up"
+        case .menuTabsMoveTabDown:
+            return "Move Tab Down"
         case .menuTabsUseAsCaptureTab:
             return "Use as Capture Tab"
 
@@ -1339,6 +1347,10 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "Move Left"
         case .tabContextMoveRight:
             return "Move Right"
+        case .tabContextMoveUp:
+            return "Move Up"
+        case .tabContextMoveDown:
+            return "Move Down"
         case .tabContextCompareSyncFolder:
             return "Compare with Sync Folder\u{2026}"
 
@@ -1766,6 +1778,10 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "向左移动标签页"
         case .menuTabsMoveTabRight:
             return "向右移动标签页"
+        case .menuTabsMoveTabUp:
+            return "上移标签页"
+        case .menuTabsMoveTabDown:
+            return "下移标签页"
         case .menuTabsUseAsCaptureTab:
             return "用作捕获标签页"
 
@@ -2390,6 +2406,10 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "向左移动"
         case .tabContextMoveRight:
             return "向右移动"
+        case .tabContextMoveUp:
+            return "上移"
+        case .tabContextMoveDown:
+            return "下移"
         case .tabContextCompareSyncFolder:
             return "与同步文件夹对比\u{2026}"
 
