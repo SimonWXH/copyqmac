@@ -46,13 +46,27 @@ make clean   # removes build/ and .build/
 `make build` compiles `core/*.swift`, `core/CopyQSync/Sources/CopyQSync/*.swift`,
 and `app/*.swift` with `swiftc` against the macOS 26 SDK, copies the binary into
 a bundle with a hand-written `Info.plist` (`LSUIElement` is true so the app lives
-in the menu bar without a Dock icon while no window is open), installs the app
-icon from `resources/` into
-`Contents/Resources` where `CFBundleIconFile` points at it, and ad-hoc signs the
-bundle last. The app and test binaries link the system zlib (`-lz`) for flavour
-compression; macOS ships it, so nothing extra needs installing. The binary is
-staged outside the bundle first so the `.dSYM` is not sealed inside the signed app.
-`make run` opens the finished bundle through LaunchServices.
+in the menu bar without a Dock icon while no window is open), prunes and installs
+app resources from `resources/` into `Contents/Resources` (asserting that the
+staged resources are exactly the tree's, so neither a file the tree no longer
+has, nor a source resource that failed to copy or whose bundled copy differs
+from it, reaches the signature), and ad-hoc signs the bundle last. The app and
+test binaries link the system zlib (`-lz`) for flavour compression; macOS ships
+it, so nothing extra needs installing. The binary is staged outside the bundle
+first so the `.dSYM` is not sealed inside the signed app. `make run` opens the
+finished bundle through LaunchServices.
+
+### Installing the app
+
+To install or update the app in `/Applications`, copy the built bundle. Always
+remove any existing destination bundle before copying so `ditto` does not merge
+into stale bundle contents from a previous build:
+
+```sh
+make build
+rm -rf /Applications/CopyQmac.app
+ditto build/CopyQmac.app /Applications/CopyQmac.app
+```
 
 ### Launching the app (and why it matters)
 
@@ -399,6 +413,16 @@ Tools. `tests/` contains a small assertion harness and the suites:
   its segments are clicked, the control's copy in both languages, a hosted main
   window swapping its rendered arrangement when the preference flips, and the active
   tab, selection, and unfiltered list state surviving a switch at the model level
+- bundle resource validation: the assertion script
+  (`tools/assert-bundle-resources.sh`) run against temporary bundles, accepting
+  resources that match the source tree, and failing loudly with the offending
+  name when the bundle holds a stale or untracked resource or a source resource
+  never reached it
+
+`make test` additionally runs the same script against `build/CopyQmac.app` when
+that bundle already has a `Contents/Resources` directory, so a stale bundle fails
+the test target as well as the build; a tree with no built bundle skips that
+step.
 
 Most of the suite runs without a window server or a GUI session. The row-height
 and styled-editor tests lay out real AppKit views, and the editor focus, font
@@ -455,7 +479,10 @@ stays user-triggered.
   build. The app icon ships as a prebuilt `.icns` in `resources/` instead,
   drawn by `tools/generate-app-icon.swift`: `swift tools/generate-app-icon.swift`
   rewrites `resources/AppIcon.icns` through `iconutil`, so `iconutil` is only
-  needed for that regeneration.
+  needed for that regeneration. Regenerating leaves `build/CopyQmac.app` holding
+  the previous icon, which the bundle resource assertion reports as a resource
+  that differs from its source, so run `make build` afterwards (and before
+  `make test`, which re-asserts an existing bundle).
 - No `xcodebuild`, so anything that expects an `.xcodeproj` will not work here;
   the Makefile is the build system of record.
 
@@ -506,7 +533,8 @@ including one whose base moved, start the workflow manually with
 `workflow_dispatch`. The workflow contains no compiler or test command of its
 own, so the Makefile stays the single place to change them. The build target
 compiles the app and the CopyQSync format module; the test target runs both the
-app's headless suite and the CopyQSync test runner.
+app's headless suite and the CopyQSync test runner, and re-asserts a built
+bundle's resources against the source tree when that bundle is present.
 
 A pull request that only touches documentation - markdown anywhere, or the
 root `NOTICE` or `LICENSE` text - skips the build and tests. Anything outside

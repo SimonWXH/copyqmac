@@ -3,6 +3,11 @@
 # There is no Xcode project here on purpose: the Command Line Tools ship the
 # Swift compiler and the macOS SDK, which is all the app and module need. See
 # docs/build.md and core/CopyQSync/README.md.
+#
+# To install into /Applications, remove any existing bundle first so ditto does
+# not merge into stale bundle contents from a previous build:
+#   rm -rf /Applications/CopyQmac.app
+#   ditto build/CopyQmac.app /Applications/CopyQmac.app
 
 APP_NAME      := CopyQmac
 BUNDLE        := build/$(APP_NAME).app
@@ -16,7 +21,6 @@ VERSION       := $(shell tr -d '[:space:]' < $(VERSION_FILE) 2>/dev/null)
 # at Contents/Resources/<name> before the bundle is sealed by codesign.
 ICON          := AppIcon.icns
 ICON_SOURCE   := resources/$(ICON)
-BUNDLE_ICON   := $(RESOURCES_DIR)/$(ICON)
 
 ARCH      ?= $(shell uname -m)
 TARGET    ?= $(ARCH)-apple-macosx26.0
@@ -55,12 +59,13 @@ TEST_BINARY     := $(BUILD_DIR)/CopyQmacTests
 SYNC_BUILD_DIR  ?= .build
 SYNC_LIBRARY    := $(SYNC_BUILD_DIR)/libCopyQSync.dylib
 
-.PHONY: all build run test clean dmg dmg-path
+.PHONY: all build run test clean stage-resources dmg dmg-path
 
 all: build
 
-## Compile the app and CopyQSync module, then assemble and sign the app bundle.
-build: $(APP_BINARY) $(CONTENTS)/Info.plist $(BUNDLE_ICON) $(SYNC_LIBRARY)
+## Compile the app and CopyQSync module, then assemble, assert, and sign the app bundle.
+build: $(APP_BINARY) $(CONTENTS)/Info.plist stage-resources $(SYNC_LIBRARY)
+	@tools/assert-bundle-resources.sh $(BUNDLE)
 	@$(CODESIGN) --force --sign - $(BUNDLE)
 	@echo "Built $(BUNDLE)"
 
@@ -78,9 +83,13 @@ $(CONTENTS)/Info.plist: app/Info.plist $(VERSION_FILE)
 	@mkdir -p $(CONTENTS)
 	@sed 's/__VERSION__/$(VERSION)/g' app/Info.plist > $@
 
-$(BUNDLE_ICON): $(ICON_SOURCE)
+# Prune staged resources and copy source resources into the bundle.
+# No resource file that the source tree no longer has may survive a rebuild,
+# and no source resource may be dropped from it.
+stage-resources: $(ICON_SOURCE)
+	@rm -rf $(RESOURCES_DIR)
 	@mkdir -p $(RESOURCES_DIR)
-	@cp $< $@
+	@cp -R resources/. $(RESOURCES_DIR)/
 
 $(SYNC_LIBRARY): $(SYNC_SOURCES)
 	@mkdir -p $(SYNC_BUILD_DIR)
@@ -108,6 +117,9 @@ dmg: build
 test: $(TEST_BINARY)
 	$(TEST_BINARY)
 	tools/copyq-sync-tests.sh
+	@if [ -d $(BUNDLE)/Contents/Resources ]; then \
+		tools/assert-bundle-resources.sh $(BUNDLE); \
+	fi
 
 $(TEST_BINARY): $(CORE_SOURCES) $(TEST_SOURCES) $(TEST_APP_SOURCES) app/PasteboardBridge.swift
 	@mkdir -p $(BUILD_DIR)
