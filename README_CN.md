@@ -20,7 +20,7 @@ CopyQ Mac 会在排除忽略列表中的特定内容后，完整保留可随时�
 - 文本、富文本、HTML、文件 URL、图片以及未知的自定义类型均会保留。支持预览所有可解码的图像 flavour，包括 PNG、TIFF、JPEG、HEIC 与 GIF。
 - 富文本会按复制时的原始样式呈现：列表中和预览窗格中都会绘制存储的字体、标题与颜色，并自动适配浅色和深色外观。
 - 在 Finder 中复制的文件会以其文件名显示（与 CopyQ 的呈现方式一致），并能作为真实文件粘贴回去。
-- 忽略列表可防止密码管理器中的内容被写入本机历史记录和同步文件夹。默认预设并启用的应用包括 1Password、1Password 7、Bitwarden、Keychain Access、Passwords、KeePassXC、LastPass、Dashlane 以及 Enpass；每条规则均可单独停用或删除，在“偏好设置 ▸ 忽略列表”（Preferences ▸ Ignored Apps）中还可以直接添加最近一次复制所来自的应用。若来源应用将复制内容标记为 concealed、transient 或 auto-generated，也会被自动忽略。通过同步文件夹同步过来的条目则不受此过滤限制。
+- 忽略列表可防止密码管理器中的内容被写入本机历史记录和同步文件夹。默认预设并启用的应用包括 1Password、1Password 7、Bitwarden、Keychain Access、Passwords、KeePassXC、LastPass、Dashlane 以及 Enpass；每条规则均可单独停用或删除，在“偏好设置 ▸ 已忽略的应用”（Preferences ▸ Ignored Apps）中还可以直接添加最近一次复制所来自的应用。若来源应用将复制内容标记为 concealed、transient 或 auto-generated，也会被自动忽略。通过同步文件夹同步过来的条目则不受此过滤限制。
 - 可通过配置防护规则，防止常见 AI 服务的 API Key 进入历史记录和同步文件夹。该防护具有一定边界：仅对本机的复制操作生效，不会过滤通过同步文件夹接收的条目，且它是基于固定格式特征库进行匹配，而非通用的敏感凭据扫描。
 
 ### 标签页、备注与同步
