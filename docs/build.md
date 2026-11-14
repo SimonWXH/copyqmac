@@ -221,6 +221,10 @@ Tools. `tests/` contains a small assertion harness and the suites:
 - entry context and status menus: row context menu (New Item, Edit Item, Activate,
   Copy, Pin/Unpin, Remove with key equivalents), empty-area table menu, and
   status menu items sharing the same action routing and validation rules
+- tab move wording: the tab context menu and the Tabs menu naming each move for
+  the window layout in both languages (`Move Up`/`Move Down` in the sidebar,
+  `Move Left`/`Move Right` above the top tab strip) while the shortcuts, the
+  backward-then-forward order, and the commands themselves stay the same
 - multi-selection and bulk actions: the selection maths behind Command-click,
   Shift-click and Shift-arrow ranges, Command-A, and Escape; focus and anchor
   handling; a selection surviving refreshes and clearing on a tab change;

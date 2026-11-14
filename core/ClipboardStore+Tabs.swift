@@ -220,7 +220,8 @@ extension ClipboardStore {
         }
     }
 
-    /// Moves a tab one slot left (delta -1) or right (delta +1).
+    /// Moves a tab one slot toward the start of the order (delta -1) or the end
+    /// (delta +1); the tab strip draws that as left/right, the sidebar as up/down.
     public func moveTab(id: Int64, delta: Int) throws {
         var allTabs = try tabs()
         guard let index = allTabs.firstIndex(where: { $0.id == id }) else { return }
