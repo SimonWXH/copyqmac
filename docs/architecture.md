@@ -982,10 +982,12 @@ menu-bar item available.
     item list, 170pt bottom preview pane with the note editor, and status bar.
   - **Layout B (Sidebar + Inspector)**: A macOS-native arrangement using `NavigationSplitView`.
     It features a 200pt left sidebar showing the tab list with per-tab counts, capture badge,
-    and drag-and-drop tab reordering (collapsible via a fixed-position sidebar toggle button on the navigation toolbar, Control-Command-S); a 52pt
-    unified toolbar integrating the filter search field, scope picker (Current tab / All tabs),
-    and inspector toggle button (Cmd-Opt-I); a center column displaying the item list at full
-    available height; and a 280pt trailing inspector. The inspector provides a top metadata
+    and drag-and-drop tab reordering. A fixed-position toggle in the navigation toolbar
+    replaces the automatic sidebar toggle: it is pinned right of the window title and stays
+    there whether the sidebar is open or closed (Control-Command-S). A 52pt unified toolbar
+    integrates the filter search field, scope picker (Current tab / All tabs), and inspector
+    toggle button (Cmd-Opt-I); a center column displays the item list at full available
+    height; and a 280pt trailing inspector. The inspector provides a top metadata
     block (flavour tag, line count, byte size, timestamp) and preview/note panes sharing the
     remaining height across a 7pt horizontal drag divider (grip line 22x2pt,
     `NSCursor.resizeUpDown` on hover and during drag, 60pt minimum height per pane,
