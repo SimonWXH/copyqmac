@@ -404,7 +404,11 @@ Tools. `tests/` contains a small assertion harness and the suites:
   Page/Home/End into tab selection and leaving Up/Down to the list, while Return
   never pastes and Escape still reaches the window; the sidebar's tab badges read
   the stored per-tab totals counted in one grouped query and refreshed with the
-  list, so they stay correct while the visible list is capped
+  list, so they stay correct while the visible list is capped; and the
+  fixed-position sidebar toggle staying right of the title as the only sidebar
+  toggle item in the toolbar, its frame unchanged through clicks that collapse
+  and re-expand the sidebar, and its Control-Command-S key equivalent routing
+  through a real window
 - window layout switching: the default preference, a stored blob with no layout
   information, and a legacy blob carrying the pre-control layout field all resolving
   to Layout B while that legacy field is left unchanged on re-encode; a layout

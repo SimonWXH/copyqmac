@@ -74,7 +74,7 @@ extension ClipboardStore {
         }
         if let rawFolder = created.syncFolder?.trimmingCharacters(in: .whitespacesAndNewlines),
            !rawFolder.isEmpty {
-            try? reclaimOrphanedWrittenSyncStems(folder: CopyQSyncBridge.normalizePath(rawFolder))
+            _ = try? reclaimOrphanedWrittenSyncStems(folder: CopyQSyncBridge.normalizePath(rawFolder))
         }
         if created.isDefault {
             try setDefaultTab(id: created.id)
@@ -137,7 +137,7 @@ extension ClipboardStore {
             onWrittenSyncStemRemoved?(stem, folder)
         }
         if let newFolder, previousFolder != newFolder {
-            try? reclaimOrphanedWrittenSyncStems(folder: newFolder)
+            _ = try? reclaimOrphanedWrittenSyncStems(folder: newFolder)
         }
     }
 
