@@ -1,3 +1,5 @@
+[English](README.md) | [简体中文](README_CN.md)
+
 # CopyQ Mac
 
 [![CI](https://github.com/SimonWXH/copyqmac/actions/workflows/ci.yml/badge.svg)](https://github.com/SimonWXH/copyqmac/actions/workflows/ci.yml)
