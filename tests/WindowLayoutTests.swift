@@ -857,6 +857,15 @@ func registerWindowLayoutTests() {
 
                 expect(harness.clickSidebarToggle(), "the toggle button receives the click")
                 expect(harness.isSidebarCollapsed, "clicking the toggle collapses the sidebar")
+                expectNil(
+                    harness.automaticSidebarToggleItem,
+                    "the automatic drifting sidebar toggle toolbar item stays removed when collapsed"
+                )
+                expectEqual(
+                    harness.sidebarToggleToolbarItems.count,
+                    1,
+                    "exactly one sidebar toggle button is in the collapsed toolbar"
+                )
 
                 guard let collapsedView = harness.sidebarToggleToolbarItems.first?.view else {
                     TestRunner.fail("could not find SidebarToggleButton toolbar item view after collapsing")
@@ -875,9 +884,23 @@ func registerWindowLayoutTests() {
                     accuracy: 0.5,
                     "collapsing the sidebar does not move the toggle button vertically"
                 )
+                expectEqual(
+                    collapsedFrame.size,
+                    expandedFrame.size,
+                    "collapsing the sidebar does not resize the toggle button"
+                )
 
                 expect(harness.clickSidebarToggle(), "the toggle button receives the second click")
                 expect(!harness.isSidebarCollapsed, "clicking the toggle expands the sidebar again")
+                expectNil(
+                    harness.automaticSidebarToggleItem,
+                    "the automatic drifting sidebar toggle toolbar item stays removed when expanded again"
+                )
+                expectEqual(
+                    harness.sidebarToggleToolbarItems.count,
+                    1,
+                    "exactly one sidebar toggle button is in the re-expanded toolbar"
+                )
 
                 guard let reexpandedView = harness.sidebarToggleToolbarItems.first?.view else {
                     TestRunner.fail("could not find SidebarToggleButton toolbar item view after expanding")
@@ -895,6 +918,11 @@ func registerWindowLayoutTests() {
                     expandedFrame.origin.y,
                     accuracy: 0.5,
                     "expanding the sidebar does not move the toggle button vertically"
+                )
+                expectEqual(
+                    reexpandedFrame.size,
+                    expandedFrame.size,
+                    "expanding the sidebar does not resize the toggle button"
                 )
             } catch {
                 TestRunner.fail("threw \(error)")
