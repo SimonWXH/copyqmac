@@ -1026,7 +1026,8 @@ func registerLocalizationTests() {
     TestRunner.add("the main window's own surfaces carry both languages") {
         let mainWindowKeys: [CatalogKey] = [
             .tabBarNewTabHelp, .tabChipCaptureHelp, .tabContextMoveLeft,
-            .tabContextMoveRight, .tabContextCompareSyncFolder,
+            .tabContextMoveRight, .tabContextMoveUp, .tabContextMoveDown,
+            .tabContextCompareSyncFolder,
             .filterItemsPlaceholder, .filterClearHelp, .filterAllTabsToggle,
             .filterSearchAllTabsHelp, .emptyStateNoItems, .emptyStateNoMatches,
             .emptyStateCreateItem, .rowNoteBadge, .rowPinnedHelp, .rowDeleteHelp,
