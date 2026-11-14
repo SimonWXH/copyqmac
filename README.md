@@ -124,7 +124,7 @@ Pre-built disk images (`.dmg`) are available on the [Releases](https://github.co
 1. Download `CopyQMac-<version>.dmg` from the latest release.
 2. Open the disk image and drag **CopyQmac** into `/Applications`.
 3. Complete the first-launch authorization (see below).
-4. Grant Accessibility permission for clipboard monitoring and automatic paste-back.
+4. Grant Accessibility permission if you want automatic paste-back (copying works without it).
 
 ### First launch (ad-hoc signed build)
 
@@ -147,7 +147,7 @@ These steps authorize this specific application after you explicitly accept the 
 
 ### Granting Accessibility
 
-CopyQmac needs Accessibility permission to monitor clipboard activity and perform automatic paste-back:
+Automatic paste-back needs Accessibility permission. Recording the clipboard does not: it reads the pasteboard directly, so CopyQmac works without the grant.
 
 1. Open **System Settings** -> **Privacy & Security** -> **Accessibility**.
 2. Turn on the toggle next to **CopyQmac**.

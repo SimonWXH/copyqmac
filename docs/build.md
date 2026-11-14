@@ -165,7 +165,7 @@ Releases are published automatically by `.github/workflows/release.yml` whenever
 1. The runner checks out the repository.
 2. Runs `make test` and `make build`.
 3. Packages the disk image with `make dmg`.
-4. Creates a GitHub Release for the tag using `gh release create`, attaches `CopyQMac-<version>.dmg`, marks the release as a **pre-release** (beta), and attaches release notes explaining the ad-hoc signature and first-launch steps.
+4. Creates a GitHub Release for the tag using `gh release create`, attaches `CopyQMac-<version>.dmg`, marks the release as a **pre-release** (beta), and uses the notes in `.github/release-notes.md`, which explain the ad-hoc signature and first-launch steps.
 
 ### First-launch authorization (ad-hoc signed builds)
 
