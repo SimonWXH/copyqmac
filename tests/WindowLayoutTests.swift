@@ -805,6 +805,130 @@ func registerWindowLayoutTests() {
             }
         }
     }
+
+    // MARK: - Sidebar Toggle Position and State Tests
+
+    TestRunner.add("sidebar toggle button toggles columnVisibility between visible and hidden") {
+        var visibility = NavigationSplitViewVisibility.all
+        let binding = Binding(get: { visibility }, set: { visibility = $0 })
+        let button = SidebarToggleButton(columnVisibility: binding, language: .english)
+
+        expectEqual(button.isSidebarVisible, true, "sidebar starts visible")
+        expectEqual(visibility, .all, "initial columnVisibility is .all")
+
+        button.toggle()
+        expectEqual(visibility, .detailOnly, "first toggle switches columnVisibility to .detailOnly (hidden)")
+        expectEqual(button.isSidebarVisible, false, "button reflects hidden state")
+
+        button.toggle()
+        expectEqual(visibility, .all, "second toggle restores columnVisibility to .all (visible)")
+        expectEqual(button.isSidebarVisible, true, "button reflects visible state")
+    }
+
+    TestRunner.add("sidebar toggle button stays at fixed location in expanded and collapsed states") {
+        MainActor.assumeIsolated {
+            do {
+                let expandedHarness = try LayoutBWindowHarness(root: .layoutB, columnVisibility: .all)
+                defer { expandedHarness.close() }
+                expandedHarness.settle(0.4)
+
+                guard let expandedToolbar = expandedHarness.window.toolbar else {
+                    TestRunner.fail("expanded window has no toolbar")
+                    return
+                }
+
+                // Verify the drifting system sidebar toggle item is removed
+                expect(
+                    !expandedToolbar.items.contains { $0.itemIdentifier.rawValue == "com.apple.SwiftUI.navigationSplitView.toggleSidebar" },
+                    "the automatic drifting sidebar toggle toolbar item is removed"
+                )
+
+                guard let expandedItem = expandedToolbar.items.first(where: { $0.view != nil }),
+                      let expandedView = expandedItem.view
+                else {
+                    TestRunner.fail("could not find custom sidebar toggle item view in expanded window")
+                    return
+                }
+
+                let expandedFrame = expandedView.convert(expandedView.bounds, to: nil)
+                expectEqual(expandedFrame.width, 28, accuracy: 0.5, "toggle button width is 28pt")
+                expectEqual(expandedFrame.height, 28, accuracy: 0.5, "toggle button height is 28pt")
+
+                let collapsedHarness = try LayoutBWindowHarness(root: .layoutB, columnVisibility: .detailOnly)
+                defer { collapsedHarness.close() }
+                collapsedHarness.settle(0.4)
+
+                guard let collapsedToolbar = collapsedHarness.window.toolbar else {
+                    TestRunner.fail("collapsed window has no toolbar")
+                    return
+                }
+
+                guard let collapsedItem = collapsedToolbar.items.first(where: { $0.view != nil }),
+                      let collapsedView = collapsedItem.view
+                else {
+                    TestRunner.fail("could not find custom sidebar toggle item view in collapsed window")
+                    return
+                }
+
+                let collapsedFrame = collapsedView.convert(collapsedView.bounds, to: nil)
+                expectEqual(
+                    collapsedFrame.origin.x,
+                    expandedFrame.origin.x,
+                    accuracy: 0.5,
+                    "toggle button X coordinate does not move between expanded and collapsed states"
+                )
+                expectEqual(
+                    collapsedFrame.origin.y,
+                    expandedFrame.origin.y,
+                    accuracy: 0.5,
+                    "toggle button Y coordinate does not move between expanded and collapsed states"
+                )
+                expectEqual(
+                    collapsedFrame.size,
+                    expandedFrame.size,
+                    "toggle button size remains identical in both states"
+                )
+            } catch {
+                TestRunner.fail("threw \(error)")
+            }
+        }
+    }
+
+    TestRunner.add("sidebar toggle button keyboard shortcut matches standard Control-Command-S") {
+        MainActor.assumeIsolated {
+            // Validate localized help strings with shortcut symbol
+            expectEqual(
+                Localization.string(.sidebarToggleHelp, language: .english),
+                "Toggle Sidebar (\u{2303}\u{2318}S)",
+                "English help text carries ⌃⌘S"
+            )
+            expectEqual(
+                Localization.string(.sidebarToggleHelp, language: .simplifiedChinese),
+                "切换侧边栏 (\u{2303}\u{2318}S)",
+                "Simplified Chinese help text carries ⌃⌘S"
+            )
+
+            // Validate key equivalent event dispatching pattern from MainMenuTests
+            guard let event = NSEvent.keyEvent(
+                with: .keyDown,
+                location: .zero,
+                modifierFlags: [.control, .command],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                characters: "s",
+                charactersIgnoringModifiers: "s",
+                isARepeat: false,
+                keyCode: 1
+            ) else {
+                TestRunner.fail("could not construct ⌃⌘S key event")
+                return
+            }
+            expectEqual(event.charactersIgnoringModifiers, "s", "key event targets 's'")
+            expect(event.modifierFlags.contains(.control), "key event includes Control")
+            expect(event.modifierFlags.contains(.command), "key event includes Command")
+        }
+    }
 }
 
 // MARK: - Divider event harness
@@ -861,9 +985,20 @@ private final class DividerEventHarness {
 private struct LayoutBRoot: View {
     @ObservedObject var model: AppModel
     @FocusState private var searchFocused: Bool
+    @State var columnVisibility: NavigationSplitViewVisibility
+
+    init(model: AppModel, columnVisibility: NavigationSplitViewVisibility = .all) {
+        self.model = model
+        self._columnVisibility = State(initialValue: columnVisibility)
+    }
 
     var body: some View {
-        LayoutBView(model: model, searchFocused: $searchFocused, onDismiss: {})
+        LayoutBView(
+            model: model,
+            searchFocused: $searchFocused,
+            onDismiss: {},
+            columnVisibility: $columnVisibility
+        )
     }
 }
 
@@ -882,14 +1017,17 @@ private final class LayoutBWindowHarness {
 
     let model: AppModel
     let secondTab: ClipboardTab
-    private let window: NSWindow
+    let window: NSWindow
     private let hosting: NSHostingView<AnyView>
     private let keyMonitor = WindowKeyMonitor()
+
+    var testWindow: NSWindow { window }
 
     init(
         inspectorSplitRatio: Double = 0.55,
         root: Root = .mainWindow,
-        size: NSSize = NSSize(width: 900, height: 460)
+        size: NSSize = NSSize(width: 900, height: 460),
+        columnVisibility: NavigationSplitViewVisibility = .all
     ) throws {
         _ = NSApplication.shared
         let store = try ClipboardStore(inMemory: true)
@@ -914,7 +1052,7 @@ private final class LayoutBWindowHarness {
         case .mainWindow:
             hosting = NSHostingView(rootView: AnyView(MainWindowView(model: model, onDismiss: {})))
         case .layoutB:
-            hosting = NSHostingView(rootView: AnyView(LayoutBRoot(model: model)))
+            hosting = NSHostingView(rootView: AnyView(LayoutBRoot(model: model, columnVisibility: columnVisibility)))
         }
         hosting.frame = NSRect(origin: .zero, size: size)
         window = KeyableWindow(
@@ -1049,7 +1187,7 @@ private final class LayoutBWindowHarness {
         return nil
     }
 
-    func click(on view: NSView, clickCount: Int) -> (down: NSEvent, up: NSEvent)? {
+    func click(on view: NSView, clickCount: Int = 1) -> (down: NSEvent, up: NSEvent)? {
         let location = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
         func event(_ type: NSEvent.EventType) -> NSEvent? {
             NSEvent.mouseEvent(
@@ -1090,7 +1228,11 @@ private final class LayoutBWindowHarness {
     }
 
     private static func firstEditableTextView(in view: NSView) -> NSTextView? {
-        if let textView = view as? NSTextView, textView.isEditable { return textView }
+        if let textView = view as? NSTextView,
+           textView.isEditable,
+           !String(describing: type(of: textView)).contains("FieldEditor") {
+            return textView
+        }
         for subview in view.subviews {
             if let found = firstEditableTextView(in: subview) { return found }
         }

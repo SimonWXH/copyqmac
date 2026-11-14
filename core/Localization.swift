@@ -469,6 +469,7 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case scopeCurrentTab
     case scopeAllTabs
     case inspectorToggleHelp
+    case sidebarToggleHelp
 
     // Main Window: Text edit sheet and styled toolbar
     case textEditTitleEdit
@@ -1401,6 +1402,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "All tabs"
         case .inspectorToggleHelp:
             return "Toggle Inspector (\u{2325}\u{2318}I)"
+        case .sidebarToggleHelp:
+            return "Toggle Sidebar (\u{2303}\u{2318}S)"
 
         // Main Window: Text edit sheet and styled toolbar
         case .textEditTitleEdit:
@@ -2460,6 +2463,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "所有标签页"
         case .inspectorToggleHelp:
             return "切换检查器 (\u{2325}\u{2318}I)"
+        case .sidebarToggleHelp:
+            return "切换侧边栏 (\u{2303}\u{2318}S)"
 
         // Main Window: Text edit sheet and styled toolbar
         case .textEditTitleEdit:

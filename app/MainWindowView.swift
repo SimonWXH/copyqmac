@@ -124,6 +124,41 @@ private struct LayoutAView: View {
     }
 }
 
+// MARK: - Sidebar Toggle Button
+
+struct SidebarToggleButton: View {
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+    let language: AppLanguage
+
+    var isSidebarVisible: Bool {
+        columnVisibility != .detailOnly
+    }
+
+    func toggle() {
+        columnVisibility = isSidebarVisible ? .detailOnly : .all
+    }
+
+    var body: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                toggle()
+            }
+        } label: {
+            Image(systemName: "sidebar.leading")
+                .font(.system(size: 14))
+                .foregroundStyle(isSidebarVisible ? DesignTokens.Colors.selection : DesignTokens.Colors.label)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: DesignTokens.Radius.tag, style: .continuous)
+                        .fill(isSidebarVisible ? DesignTokens.Colors.selection.opacity(0.12) : Color.clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut("s", modifiers: [.control, .command])
+        .help(Localization.string(.sidebarToggleHelp, language: language))
+    }
+}
+
 // MARK: - Layout B (Sidebar + Inspector)
 
 struct LayoutBView: View {
@@ -131,10 +166,28 @@ struct LayoutBView: View {
     @FocusState.Binding var searchFocused: Bool
     let onDismiss: () -> Void
 
-    @State private var columnVisibility = NavigationSplitViewVisibility.all
+    @State private var internalColumnVisibility = NavigationSplitViewVisibility.all
+    private let externalColumnVisibility: Binding<NavigationSplitViewVisibility>?
+
     @State private var isInspectorVisible = true
     @State private var noteFocused = false
     @State private var dragRatio: Double?
+
+    init(
+        model: AppModel,
+        searchFocused: FocusState<Bool>.Binding,
+        onDismiss: @escaping () -> Void,
+        columnVisibility: Binding<NavigationSplitViewVisibility>? = nil
+    ) {
+        self.model = model
+        self._searchFocused = searchFocused
+        self.onDismiss = onDismiss
+        self.externalColumnVisibility = columnVisibility
+    }
+
+    private var effectiveColumnVisibility: Binding<NavigationSplitViewVisibility> {
+        externalColumnVisibility ?? $internalColumnVisibility
+    }
 
     private var selectedEntry: ClipboardEntry? {
         guard let id = model.selection.selectedEntryID else { return nil }
@@ -143,9 +196,10 @@ struct LayoutBView: View {
 
     var body: some View {
         let lang = model.preferences.language
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        NavigationSplitView(columnVisibility: effectiveColumnVisibility) {
             SidebarTabView(model: model)
                 .navigationSplitViewColumnWidth(min: 160, ideal: 200, max: 260)
+                .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 0) {
                 // Unified toolbar 52pt
@@ -292,6 +346,14 @@ struct LayoutBView: View {
 
                 Divider().opacity(0.35)
                 StatusBarView(model: model)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                SidebarToggleButton(
+                    columnVisibility: effectiveColumnVisibility,
+                    language: lang
+                )
             }
         }
         .onChange(of: model.focusNoteToken) { _, _ in noteFocused = true }
