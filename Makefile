@@ -55,7 +55,7 @@ TEST_BINARY     := $(BUILD_DIR)/CopyQmacTests
 SYNC_BUILD_DIR  ?= .build
 SYNC_LIBRARY    := $(SYNC_BUILD_DIR)/libCopyQSync.dylib
 
-.PHONY: all build run test clean dmg
+.PHONY: all build run test clean dmg dmg-path
 
 all: build
 
@@ -89,6 +89,10 @@ $(SYNC_LIBRARY): $(SYNC_SOURCES)
 ## Launch the built app.
 run: build
 	open $(BUNDLE)
+
+## Print the path of the disk image `make dmg` produces.
+dmg-path:
+	@echo $(DMG)
 
 ## Package the app bundle into a compressed disk image.
 dmg: build

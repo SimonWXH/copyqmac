@@ -166,7 +166,9 @@ make dmg
 
 This creates a staging directory containing `CopyQmac.app` and a symlink to
 `/Applications`, then invokes `hdiutil create` with the `UDZO` format to produce
-`build/CopyQMac-<version>.dmg`.
+`build/CopyQMac-<version>.dmg`. `make dmg-path` prints that path without building
+anything; the release workflow reads it from there instead of recomputing the
+file name from `VERSION`.
 
 ### Release workflow (GitHub Actions)
 

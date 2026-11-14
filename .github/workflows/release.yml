@@ -45,8 +45,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION=$(tr -d '[:space:]' < VERSION)
-          DMG_FILE="build/CopyQMac-${VERSION}.dmg"
+          DMG_FILE=$(make --no-print-directory dmg-path)
           if [ ! -f "${DMG_FILE}" ]; then
             echo "Expected DMG at ${DMG_FILE} was not found" >&2
             exit 1
