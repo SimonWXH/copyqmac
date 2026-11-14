@@ -367,11 +367,6 @@ private struct SidebarTabView: View {
 }
 
 enum TabContextMenu {
-    enum Layout: Equatable, Sendable {
-        case sidebar
-        case tabStrip
-    }
-
     struct Titles: Equatable, Sendable {
         let rename: String
         let moveBackward: String
@@ -381,14 +376,14 @@ enum TabContextMenu {
         let removeTab: String
     }
 
-    static func titles(for layout: Layout, language: AppLanguage) -> Titles {
+    static func titles(for layout: WindowLayout, language: AppLanguage) -> Titles {
         let moveBackwardKey: CatalogKey
         let moveForwardKey: CatalogKey
         switch layout {
-        case .sidebar:
+        case .layoutB:
             moveBackwardKey = .tabContextMoveUp
             moveForwardKey = .tabContextMoveDown
-        case .tabStrip:
+        case .layoutA:
             moveBackwardKey = .tabContextMoveLeft
             moveForwardKey = .tabContextMoveRight
         }
@@ -463,7 +458,7 @@ private struct SidebarTabRow: View {
             return true
         }
         .contextMenu {
-            let titles = TabContextMenu.titles(for: .sidebar, language: lang)
+            let titles = TabContextMenu.titles(for: model.preferences.windowLayout, language: lang)
             Button(titles.rename) {
                 model.pendingRenameTabID = tab.id
             }
@@ -872,7 +867,7 @@ private struct TabChip: View {
             return true
         }
         .contextMenu {
-            let titles = TabContextMenu.titles(for: .tabStrip, language: lang)
+            let titles = TabContextMenu.titles(for: model.preferences.windowLayout, language: lang)
             Button(titles.rename) {
                 model.pendingRenameTabID = tab.id
             }
