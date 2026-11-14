@@ -4,7 +4,7 @@ This is a pre-release beta build of CopyQmac.
 
 ### Installation
 
-1. Download the disk image (`.dmg`) attached below.
+1. Download the disk image (`.dmg`) attached below. It contains an Apple silicon (arm64) build; on an Intel Mac, build from source with `make build` instead.
 2. Open the disk image and drag **CopyQmac** into `/Applications`.
 3. Complete the first-launch authorization steps below.
 4. Optionally grant Accessibility permission if you want automatic paste-back; copying and recording history work without it (see below).

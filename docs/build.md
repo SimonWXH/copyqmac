@@ -163,23 +163,14 @@ This creates a staging directory containing `CopyQmac.app` and a symlink to `/Ap
 Releases are published automatically by `.github/workflows/release.yml` whenever a tag matching `v*` is pushed:
 
 1. The runner checks out the repository.
-2. Runs `make test` and `make build`.
-3. Packages the disk image with `make dmg`.
-4. Creates a GitHub Release for the tag using `gh release create`, attaches `CopyQMac-<version>.dmg`, marks the release as a **pre-release** (beta), and uses the notes in `.github/release-notes.md`, which explain the ad-hoc signature and first-launch steps.
+2. Fails the job unless the tag minus its leading `v` equals `VERSION`, so bump `VERSION` before tagging.
+3. Runs `make test` and `make build`.
+4. Packages the disk image with `make dmg`.
+5. Creates a GitHub Release for the tag using `gh release create`, attaches `CopyQMac-<version>.dmg`, marks the release as a **pre-release** (beta), and uses the notes in `.github/release-notes.md`, which explain the ad-hoc signature and first-launch steps.
 
 ### First-launch authorization (ad-hoc signed builds)
 
-Because the project does not use a paid Apple Developer account, releases are ad-hoc signed and unnotarized. macOS Gatekeeper will block the first launch of a downloaded build with a message saying the developer cannot be verified.
-
-Users can authorize the application to run (only for builds from trusted sources):
-
-1. **System Settings:** Double-click `CopyQmac.app` in `/Applications` (macOS blocks it). Open **System Settings** -> **Privacy & Security**, scroll to **Security**, click **Open Anyway**, authenticate, and click **Open**. macOS records a trusted exception for future launches.
-2. **Terminal:** Strip the quarantine flag with:
-   ```sh
-   xattr -d com.apple.quarantine /Applications/CopyQmac.app
-   ```
-
-These steps authorize this application specifically once after acknowledging the risk; they do not disable system protection or Gatekeeper globally.
+Because the project does not use a paid Apple Developer account, releases are ad-hoc signed and unnotarized, so macOS blocks the first launch of a downloaded build; the exact authorization steps live in `.github/release-notes.md`, which is the body of every release.
 
 ## Tests
 

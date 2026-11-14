@@ -17,6 +17,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Check tag matches VERSION
+        run: |
+          VERSION=$(tr -d '[:space:]' < VERSION)
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "${TAG_VERSION}" != "${VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match VERSION ${VERSION}" >&2
+            exit 1
+          fi
+
       - name: Toolchain
         run: |
           swift --version

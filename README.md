@@ -110,7 +110,8 @@ only.
 
 ## Requirements
 
-- macOS 26 or later, Apple silicon or Intel.
+- macOS 26 or later, Apple silicon for the prebuilt disk image; Intel Macs build
+  from source (see [Installation](#installation)).
 - The Swift toolchain and macOS SDK. The Command Line Tools are enough: a full Xcode
   installation is neither needed to build, sign and run the app, nor needed for the
   test suite.
@@ -121,29 +122,16 @@ only.
 
 Pre-built disk images (`.dmg`) are available on the [Releases](https://github.com/SimonWXH/copyqmac/releases) page.
 
-1. Download `CopyQMac-<version>.dmg` from the latest release.
+1. Download `CopyQMac-<version>.dmg` from the latest release. The disk image is
+   Apple silicon only; on an Intel Mac, build from source instead with `make build`
+   (see [Build](#build)).
 2. Open the disk image and drag **CopyQmac** into `/Applications`.
 3. Complete the first-launch authorization (see below).
 4. Grant Accessibility permission if you want automatic paste-back (copying works without it).
 
 ### First launch (ad-hoc signed build)
 
-Release builds are ad-hoc signed and not notarized, as CopyQmac is developed without an Apple Developer account. On macOS, downloaded applications carry a quarantine flag, and macOS will refuse to run an unnotarized application on first launch.
-
-To authorize CopyQmac to run (only do this for builds downloaded from a trusted source):
-
-1. **System Settings (Standard macOS flow):**
-   - Double-click `CopyQmac.app` in `/Applications`. macOS will block launch and notify you that the developer cannot be verified. Click **Done**.
-   - Open **System Settings** -> **Privacy & Security**, scroll down to the **Security** section, and click **Open Anyway**.
-   - Authenticate with your Mac user password or Touch ID, then click **Open** in the confirmation dialog.
-   - macOS records this application as a trusted exception; subsequent launches will open directly.
-2. **Terminal alternative:**
-   Remove the quarantine attribute directly:
-   ```sh
-   xattr -d com.apple.quarantine /Applications/CopyQmac.app
-   ```
-
-These steps authorize this specific application after you explicitly accept the risk; they do not disable system protection or Gatekeeper globally.
+Release builds are ad-hoc signed and not notarized, as CopyQmac is developed without an Apple Developer account, so macOS blocks the first launch of a downloaded copy. The exact authorization steps are in the [release notes](https://github.com/SimonWXH/copyqmac/releases) for the release you download.
 
 ### Granting Accessibility
 
