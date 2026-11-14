@@ -113,7 +113,8 @@ dmg: build
 	@rm -rf $(DMG_STAGE)
 	@echo "Packaged $(DMG)"
 
-## Run the app and CopyQSync headless test suites.
+## Run the app and CopyQSync headless test suites, and re-assert a built
+## bundle's resources against the source tree.
 test: $(TEST_BINARY)
 	$(TEST_BINARY)
 	tools/copyq-sync-tests.sh

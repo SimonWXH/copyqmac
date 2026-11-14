@@ -38,7 +38,7 @@ membership, so published releases stay ad-hoc signed and unnotarized - see
 ```sh
 make build   # compiles app/ and core/ into CopyQmac.app
 make run     # launches the built app
-make test    # runs the headless test suite
+make test    # runs the headless test suites and re-asserts a built bundle
 make dmg     # packages build/CopyQmac.app into a compressed disk image
 make clean   # removes build/ and .build/
 ```
