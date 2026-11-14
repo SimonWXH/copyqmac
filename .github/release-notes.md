@@ -7,7 +7,7 @@ This is a pre-release beta build of CopyQmac.
 1. Download the disk image (`.dmg`) attached below.
 2. Open the disk image and drag **CopyQmac** into `/Applications`.
 3. Complete the first-launch authorization steps below.
-4. Grant Accessibility permission when prompted.
+4. Optionally grant Accessibility permission if you want automatic paste-back; copying and recording history work without it (see below).
 
 ### Security and First-Launch Authorization (Ad-hoc Signed Build)
 
