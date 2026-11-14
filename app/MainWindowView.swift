@@ -156,6 +156,7 @@ struct SidebarToggleButton: View {
         .buttonStyle(.plain)
         .keyboardShortcut("s", modifiers: [.control, .command])
         .help(Localization.string(.sidebarToggleHelp, language: language))
+        .accessibilityIdentifier("SidebarToggleButton")
     }
 }
 
@@ -166,9 +167,7 @@ struct LayoutBView: View {
     @FocusState.Binding var searchFocused: Bool
     let onDismiss: () -> Void
 
-    @State private var internalColumnVisibility = NavigationSplitViewVisibility.all
-    private let externalColumnVisibility: Binding<NavigationSplitViewVisibility>?
-
+    @State private var columnVisibility: NavigationSplitViewVisibility
     @State private var isInspectorVisible = true
     @State private var noteFocused = false
     @State private var dragRatio: Double?
@@ -177,16 +176,12 @@ struct LayoutBView: View {
         model: AppModel,
         searchFocused: FocusState<Bool>.Binding,
         onDismiss: @escaping () -> Void,
-        columnVisibility: Binding<NavigationSplitViewVisibility>? = nil
+        initialColumnVisibility: NavigationSplitViewVisibility = .all
     ) {
         self.model = model
         self._searchFocused = searchFocused
         self.onDismiss = onDismiss
-        self.externalColumnVisibility = columnVisibility
-    }
-
-    private var effectiveColumnVisibility: Binding<NavigationSplitViewVisibility> {
-        externalColumnVisibility ?? $internalColumnVisibility
+        self._columnVisibility = State(initialValue: initialColumnVisibility)
     }
 
     private var selectedEntry: ClipboardEntry? {
@@ -196,7 +191,7 @@ struct LayoutBView: View {
 
     var body: some View {
         let lang = model.preferences.language
-        NavigationSplitView(columnVisibility: effectiveColumnVisibility) {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarTabView(model: model)
                 .navigationSplitViewColumnWidth(min: 160, ideal: 200, max: 260)
                 .toolbar(removing: .sidebarToggle)
@@ -349,9 +344,9 @@ struct LayoutBView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .navigation) {
+            ToolbarItem(id: "SidebarToggleButton", placement: .navigation) {
                 SidebarToggleButton(
-                    columnVisibility: effectiveColumnVisibility,
+                    columnVisibility: $columnVisibility,
                     language: lang
                 )
             }

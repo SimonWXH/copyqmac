@@ -828,25 +828,28 @@ func registerWindowLayoutTests() {
     TestRunner.add("sidebar toggle button stays at fixed location in expanded and collapsed states") {
         MainActor.assumeIsolated {
             do {
-                let expandedHarness = try LayoutBWindowHarness(root: .layoutB, columnVisibility: .all)
+                let expandedHarness = try LayoutBWindowHarness(root: .layoutB, initialColumnVisibility: .all)
                 defer { expandedHarness.close() }
                 expandedHarness.settle(0.4)
+
+                expect(expandedHarness.sidebarTable != nil, "sidebar is rendered in expanded state")
 
                 guard let expandedToolbar = expandedHarness.window.toolbar else {
                     TestRunner.fail("expanded window has no toolbar")
                     return
                 }
 
-                // Verify the drifting system sidebar toggle item is removed
+                // Verify the automatic drifting sidebar toggle item is removed
                 expect(
-                    !expandedToolbar.items.contains { $0.itemIdentifier.rawValue == "com.apple.SwiftUI.navigationSplitView.toggleSidebar" },
+                    !expandedToolbar.items.contains { $0.itemIdentifier.rawValue.contains("toggleSidebar") || $0.itemIdentifier.rawValue.contains("sidebarToggle") },
                     "the automatic drifting sidebar toggle toolbar item is removed"
                 )
 
-                guard let expandedItem = expandedToolbar.items.first(where: { $0.view != nil }),
-                      let expandedView = expandedItem.view
-                else {
-                    TestRunner.fail("could not find custom sidebar toggle item view in expanded window")
+                guard let expandedItem = expandedToolbar.items.first(where: {
+                    $0.itemIdentifier.rawValue.contains("SidebarToggleButton")
+                }),
+                let expandedView = expandedItem.view else {
+                    TestRunner.fail("could not find SidebarToggleButton toolbar item view in expanded window")
                     return
                 }
 
@@ -854,7 +857,7 @@ func registerWindowLayoutTests() {
                 expectEqual(expandedFrame.width, 28, accuracy: 0.5, "toggle button width is 28pt")
                 expectEqual(expandedFrame.height, 28, accuracy: 0.5, "toggle button height is 28pt")
 
-                let collapsedHarness = try LayoutBWindowHarness(root: .layoutB, columnVisibility: .detailOnly)
+                let collapsedHarness = try LayoutBWindowHarness(root: .layoutB, initialColumnVisibility: .detailOnly)
                 defer { collapsedHarness.close() }
                 collapsedHarness.settle(0.4)
 
@@ -863,10 +866,11 @@ func registerWindowLayoutTests() {
                     return
                 }
 
-                guard let collapsedItem = collapsedToolbar.items.first(where: { $0.view != nil }),
-                      let collapsedView = collapsedItem.view
-                else {
-                    TestRunner.fail("could not find custom sidebar toggle item view in collapsed window")
+                guard let collapsedItem = collapsedToolbar.items.first(where: {
+                    $0.itemIdentifier.rawValue.contains("SidebarToggleButton")
+                }),
+                let collapsedView = collapsedItem.view else {
+                    TestRunner.fail("could not find SidebarToggleButton toolbar item view in collapsed window")
                     return
                 }
 
@@ -985,11 +989,11 @@ private final class DividerEventHarness {
 private struct LayoutBRoot: View {
     @ObservedObject var model: AppModel
     @FocusState private var searchFocused: Bool
-    @State var columnVisibility: NavigationSplitViewVisibility
+    let initialColumnVisibility: NavigationSplitViewVisibility
 
-    init(model: AppModel, columnVisibility: NavigationSplitViewVisibility = .all) {
+    init(model: AppModel, initialColumnVisibility: NavigationSplitViewVisibility = .all) {
         self.model = model
-        self._columnVisibility = State(initialValue: columnVisibility)
+        self.initialColumnVisibility = initialColumnVisibility
     }
 
     var body: some View {
@@ -997,7 +1001,7 @@ private struct LayoutBRoot: View {
             model: model,
             searchFocused: $searchFocused,
             onDismiss: {},
-            columnVisibility: $columnVisibility
+            initialColumnVisibility: initialColumnVisibility
         )
     }
 }
@@ -1021,13 +1025,11 @@ private final class LayoutBWindowHarness {
     private let hosting: NSHostingView<AnyView>
     private let keyMonitor = WindowKeyMonitor()
 
-    var testWindow: NSWindow { window }
-
     init(
         inspectorSplitRatio: Double = 0.55,
         root: Root = .mainWindow,
         size: NSSize = NSSize(width: 900, height: 460),
-        columnVisibility: NavigationSplitViewVisibility = .all
+        initialColumnVisibility: NavigationSplitViewVisibility = .all
     ) throws {
         _ = NSApplication.shared
         let store = try ClipboardStore(inMemory: true)
@@ -1052,7 +1054,7 @@ private final class LayoutBWindowHarness {
         case .mainWindow:
             hosting = NSHostingView(rootView: AnyView(MainWindowView(model: model, onDismiss: {})))
         case .layoutB:
-            hosting = NSHostingView(rootView: AnyView(LayoutBRoot(model: model, columnVisibility: columnVisibility)))
+            hosting = NSHostingView(rootView: AnyView(LayoutBRoot(model: model, initialColumnVisibility: initialColumnVisibility)))
         }
         hosting.frame = NSRect(origin: .zero, size: size)
         window = KeyableWindow(
@@ -1228,9 +1230,7 @@ private final class LayoutBWindowHarness {
     }
 
     private static func firstEditableTextView(in view: NSView) -> NSTextView? {
-        if let textView = view as? NSTextView,
-           textView.isEditable,
-           !String(describing: type(of: textView)).contains("FieldEditor") {
+        if let textView = view as? NSTextView, textView.isEditable, !textView.isFieldEditor {
             return textView
         }
         for subview in view.subviews {
