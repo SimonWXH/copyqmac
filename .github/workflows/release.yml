@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: release
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Toolchain
+        run: |
+          swift --version
+          xcrun --sdk macosx --show-sdk-path
+          xcrun --sdk macosx --show-sdk-version
+
+      - name: Test
+        run: make test
+
+      - name: Build
+        run: make build
+
+      - name: Package DMG
+        run: make dmg
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(tr -d '[:space:]' < VERSION)
+          DMG_FILE="build/CopyQMac-${VERSION}.dmg"
+          if [ ! -f "${DMG_FILE}" ]; then
+            echo "Expected DMG at ${DMG_FILE} was not found" >&2
+            exit 1
+          fi
+
+          cat << 'EOF' > /tmp/release-notes.md
+## CopyQmac Beta Release
+
+This is a pre-release beta build of CopyQmac.
+
+### Installation
+
+1. Download the disk image (`.dmg`) attached below.
+2. Open the disk image and drag **CopyQmac** into `/Applications`.
+3. Complete the first-launch authorization steps below.
+4. Grant Accessibility permission when prompted.
+
+### Security and First-Launch Authorization (Ad-hoc Signed Build)
+
+This build is ad-hoc signed and not notarized because CopyQmac is developed without a paid Apple Developer account. On modern macOS, Gatekeeper flags unnotarized downloaded applications and blocks them on first launch with an alert stating that the developer cannot be verified. This is normal system behavior for open-source community builds.
+
+To authorize CopyQmac to run (only do this for builds downloaded from a trusted source):
+
+#### Method 1: System Settings (Standard macOS flow)
+1. After dragging **CopyQmac** into `/Applications`, double-click to open it. macOS will block launch and state that the developer cannot be verified. Click **Done**.
+2. Open **System Settings** -> **Privacy & Security** and scroll down to the **Security** section.
+3. Look for the notice stating "CopyQmac was blocked" and click the **Open Anyway** button.
+4. Authenticate with your Mac user password or Touch ID, then click **Open** in the confirmation dialog.
+5. macOS records the application as a trusted exception; subsequent launches open directly with a normal double-click.
+
+#### Method 2: Terminal Alternative
+If you prefer the command line, strip the quarantine extended attribute from the installed application bundle:
+```sh
+xattr -d com.apple.quarantine /Applications/CopyQmac.app
+```
+
+> **Security Note:** Both methods authorize this specific application once after you review and accept the risk. They do not disable system protection or Gatekeeper globally.
+
+### Accessibility Permission
+
+CopyQmac needs Accessibility permission for clipboard change detection and automatic paste-back:
+1. Open **System Settings** -> **Privacy & Security** -> **Accessibility**.
+2. Switch on the toggle for **CopyQmac**.
+3. If upgrading from an earlier build, remove the existing entry using the **-** button and add `/Applications/CopyQmac.app` anew using the **+** button, because macOS binds Accessibility grants to the specific binary signature.
+EOF
+
+          gh release create "${GITHUB_REF_NAME}" "${DMG_FILE}" \
+            --title "CopyQmac ${GITHUB_REF_NAME}" \
+            --notes-file /tmp/release-notes.md \
+            --prerelease

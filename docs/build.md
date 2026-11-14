@@ -37,7 +37,8 @@ to other machines. Neither applies here.
 make build   # compiles app/ and core/ into CopyQmac.app
 make run     # launches the built app
 make test    # runs the headless test suite
-make clean   # removes build/
+make dmg     # packages build/CopyQmac.app into a compressed disk image
+make clean   # removes build/ and .build/
 ```
 
 `make build` compiles `core/*.swift`, `core/CopyQSync/Sources/CopyQSync/*.swift`,
@@ -138,6 +139,47 @@ such an app inherits the trust, so macOS never prompts - see
 
 The Makefile accepts `TARGET`, `SDK`, `SWIFTC`, `CODESIGN`, and `ARCH`
 overrides. Defaults derive from `uname -m` and `xcrun --show-sdk-path`.
+
+## Release flow and packaging
+
+### Versioning
+
+The single source of truth for the application version is the `VERSION` file at the repository root. During `make build`, the version string from `VERSION` is stamped into the application bundle's `Info.plist` as both `CFBundleShortVersionString` and `CFBundleVersion`. No version literals exist anywhere else in the tree.
+
+The application's About panel (`orderFrontStandardAboutPanel`) displays this version string read directly from the bundle, matching the release downloaded by the user.
+
+### Disk image (.dmg) packaging
+
+`make dmg` packages `build/CopyQmac.app` into a compressed disk image:
+
+```sh
+make dmg
+```
+
+This creates a staging directory containing `CopyQmac.app` and a symlink to `/Applications`, then invokes `hdiutil create` with the `UDZO` format to produce `build/CopyQMac-<version>.dmg`.
+
+### Release workflow (GitHub Actions)
+
+Releases are published automatically by `.github/workflows/release.yml` whenever a tag matching `v*` is pushed:
+
+1. The runner checks out the repository.
+2. Runs `make test` and `make build`.
+3. Packages the disk image with `make dmg`.
+4. Creates a GitHub Release for the tag using `gh release create`, attaches `CopyQMac-<version>.dmg`, marks the release as a **pre-release** (beta), and attaches release notes explaining the ad-hoc signature and first-launch steps.
+
+### First-launch authorization (ad-hoc signed builds)
+
+Because the project does not use a paid Apple Developer account, releases are ad-hoc signed and unnotarized. macOS Gatekeeper will block the first launch of a downloaded build with a message saying the developer cannot be verified.
+
+Users can authorize the application to run (only for builds from trusted sources):
+
+1. **System Settings:** Double-click `CopyQmac.app` in `/Applications` (macOS blocks it). Open **System Settings** -> **Privacy & Security**, scroll to **Security**, click **Open Anyway**, authenticate, and click **Open**. macOS records a trusted exception for future launches.
+2. **Terminal:** Strip the quarantine flag with:
+   ```sh
+   xattr -d com.apple.quarantine /Applications/CopyQmac.app
+   ```
+
+These steps authorize this application specifically once after acknowledging the risk; they do not disable system protection or Gatekeeper globally.
 
 ## Tests
 
