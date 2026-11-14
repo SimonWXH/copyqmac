@@ -49,6 +49,7 @@ registerLocalizationTests()
 registerDesignTokensTests()
 registerWindowLayoutTests()
 registerTabContextMenuTests()
+registerBundleResourcesTests()
 
 print("CopyQmac core tests")
 TestRunner.run()

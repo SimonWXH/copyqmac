@@ -147,15 +147,17 @@ notes](https://github.com/SimonWXH/copyqmac/releases) for the release you downlo
 
 ```sh
 make build    # compile and assemble CopyQmac.app
-make test     # run the headless test suite
+make test     # run the headless test suite and re-assert a built bundle
 make run      # launch the built app
 make clean
 ```
 
-To install the app, copy the built bundle to `/Applications`:
+To install the app, copy the built bundle to `/Applications` (remove any existing
+bundle first so `ditto` does not merge over stale bundle content):
 
 ```sh
 make build
+rm -rf /Applications/CopyQmac.app
 ditto build/CopyQmac.app /Applications/CopyQmac.app
 ```
 
