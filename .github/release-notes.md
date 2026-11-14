@@ -1,0 +1,38 @@
+## CopyQmac Beta Release
+
+This is a pre-release beta build of CopyQmac.
+
+### Installation
+
+1. Download the disk image (`.dmg`) attached below. It contains an Apple silicon (arm64) build; on an Intel Mac, build from source with `make build` instead.
+2. Open the disk image and drag **CopyQmac** into `/Applications`.
+3. Complete the first-launch authorization steps below.
+4. Optionally grant Accessibility permission if you want automatic paste-back; copying and recording history work without it (see below).
+
+### Security and First-Launch Authorization (Ad-hoc Signed Build)
+
+This build is ad-hoc signed and not notarized because CopyQmac is developed without a paid Apple Developer account. On modern macOS, Gatekeeper flags unnotarized downloaded applications and blocks them on first launch with an alert stating that the developer cannot be verified. This is normal system behavior for open-source community builds.
+
+To authorize CopyQmac to run (only do this for builds downloaded from a trusted source):
+
+#### Method 1: System Settings (Standard macOS flow)
+1. After dragging **CopyQmac** into `/Applications`, double-click to open it. macOS will block launch and state that the developer cannot be verified. Click **Done**.
+2. Open **System Settings** -> **Privacy & Security** and scroll down to the **Security** section.
+3. Look for the notice stating "CopyQmac was blocked" and click the **Open Anyway** button.
+4. Authenticate with your Mac user password or Touch ID, then click **Open** in the confirmation dialog.
+5. macOS records the application as a trusted exception; subsequent launches open directly with a normal double-click.
+
+#### Method 2: Terminal Alternative
+If you prefer the command line, strip the quarantine extended attribute from the installed application bundle:
+```sh
+xattr -d com.apple.quarantine /Applications/CopyQmac.app
+```
+
+> **Security Note:** Both methods authorize this specific application once after you review and accept the risk. They do not disable system protection or Gatekeeper globally.
+
+### Accessibility Permission
+
+Automatic paste-back needs Accessibility permission. Clipboard change detection does not, so the app copies and records history without the grant:
+1. Open **System Settings** -> **Privacy & Security** -> **Accessibility**.
+2. Switch on the toggle for **CopyQmac**.
+3. If upgrading from an earlier build, remove the existing entry using the **-** button and add `/Applications/CopyQmac.app` anew using the **+** button, because macOS binds Accessibility grants to the specific binary signature.

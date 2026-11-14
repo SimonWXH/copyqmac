@@ -50,6 +50,12 @@ func registerMainMenuTests() {
             // About, Hide, and Quit live in the application menu; Quit is what
             // makes it recognisable as that menu.
             let appMenu = menu.items.first?.submenu
+            expectEqual(appMenu?.items.first?.title, "About CopyQmac", "About is the first item in the application menu")
+            expectEqual(
+                appMenu?.items.first?.action,
+                #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+                "About opens the standard about panel"
+            )
             expectEqual(appMenu?.items.last?.title, "Quit CopyQmac", "Quit closes the application menu")
             expectEqual(appMenu?.items.last?.keyEquivalent, "q", "Quit keeps Command-Q")
 

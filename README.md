@@ -112,12 +112,36 @@ only.
 
 ## Requirements
 
-- macOS 26 or later, Apple silicon or Intel.
+- macOS 26 or later. The prebuilt disk image is Apple silicon only; Intel Macs
+  build from source (see [Installation](#installation)).
 - The Swift toolchain and macOS SDK. The Command Line Tools are enough: a full Xcode
   installation is neither needed to build, sign and run the app, nor needed for the
   test suite.
-- No Apple Developer account. Builds are signed ad hoc for local use.
+- No Apple Developer account. Local builds and published releases are signed
+  ad hoc.
 - Accessibility permission is optional, and only needed for automatic paste-back.
+
+## Installation
+
+Pre-built disk images (`.dmg`) are available on the
+[Releases](https://github.com/SimonWXH/copyqmac/releases) page.
+
+1. Download `CopyQMac-<version>.dmg` from the latest release. The disk image is
+   Apple silicon only; on an Intel Mac, build from source instead with `make build`
+   (see [Build](#build)).
+2. Open the disk image and drag **CopyQmac** into `/Applications`.
+3. Complete the first-launch authorization (see below).
+4. Grant Accessibility permission only if you want automatic paste-back; copying and
+   recording history work without it. The [release
+   notes](https://github.com/SimonWXH/copyqmac/releases) for the release you download
+   have the exact steps for both.
+
+### First launch (ad-hoc signed build)
+
+Release builds are ad-hoc signed and not notarized, as CopyQmac is developed without
+an Apple Developer account, so macOS blocks the first launch of a downloaded copy. The
+exact authorization steps are in the [release
+notes](https://github.com/SimonWXH/copyqmac/releases) for the release you download.
 
 ## Build
 

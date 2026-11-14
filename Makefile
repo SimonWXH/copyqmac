@@ -9,6 +9,8 @@ BUNDLE        := build/$(APP_NAME).app
 CONTENTS      := $(BUNDLE)/Contents
 MACOS_DIR     := $(CONTENTS)/MacOS
 RESOURCES_DIR := $(CONTENTS)/Resources
+VERSION_FILE  := VERSION
+VERSION       := $(shell tr -d '[:space:]' < $(VERSION_FILE) 2>/dev/null)
 
 # CFBundleIconFile in app/Info.plist names this file, so it has to be installed
 # at Contents/Resources/<name> before the bundle is sealed by codesign.
@@ -44,13 +46,16 @@ FRAMEWORKS := -framework AppKit -framework SwiftUI -framework Carbon \
               -framework ImageIO -framework UniformTypeIdentifiers -framework ServiceManagement
 
 BUILD_DIR       := build
+DMG_NAME        := CopyQMac-$(VERSION).dmg
+DMG             := $(BUILD_DIR)/$(DMG_NAME)
+DMG_STAGE       := $(BUILD_DIR)/dmg-stage
 APP_STAGE       := $(BUILD_DIR)/$(APP_NAME)-bin
 APP_BINARY      := $(MACOS_DIR)/$(APP_NAME)
 TEST_BINARY     := $(BUILD_DIR)/CopyQmacTests
 SYNC_BUILD_DIR  ?= .build
 SYNC_LIBRARY    := $(SYNC_BUILD_DIR)/libCopyQSync.dylib
 
-.PHONY: all build run test clean
+.PHONY: all build run test clean dmg dmg-path
 
 all: build
 
@@ -69,9 +74,9 @@ $(APP_BINARY): $(APP_STAGE)
 	@mkdir -p $(MACOS_DIR)
 	@cp $< $@
 
-$(CONTENTS)/Info.plist: app/Info.plist
+$(CONTENTS)/Info.plist: app/Info.plist $(VERSION_FILE)
 	@mkdir -p $(CONTENTS)
-	@cp app/Info.plist $@
+	@sed 's/__VERSION__/$(VERSION)/g' app/Info.plist > $@
 
 $(BUNDLE_ICON): $(ICON_SOURCE)
 	@mkdir -p $(RESOURCES_DIR)
@@ -84,6 +89,20 @@ $(SYNC_LIBRARY): $(SYNC_SOURCES)
 ## Launch the built app.
 run: build
 	open $(BUNDLE)
+
+## Print the path of the disk image `make dmg` produces.
+dmg-path:
+	@echo $(DMG)
+
+## Package the app bundle into a compressed disk image.
+dmg: build
+	@rm -rf $(DMG_STAGE) $(DMG)
+	@mkdir -p $(DMG_STAGE)
+	@cp -R $(BUNDLE) $(DMG_STAGE)/
+	@ln -s /Applications $(DMG_STAGE)/Applications
+	@hdiutil create -volname "$(APP_NAME)" -srcfolder $(DMG_STAGE) -ov -format UDZO $(DMG)
+	@rm -rf $(DMG_STAGE)
+	@echo "Packaged $(DMG)"
 
 ## Run the app and CopyQSync headless test suites.
 test: $(TEST_BINARY)
