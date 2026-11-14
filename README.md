@@ -147,7 +147,7 @@ notes](https://github.com/SimonWXH/copyqmac/releases) for the release you downlo
 
 ```sh
 make build    # compile and assemble CopyQmac.app
-make test     # run the headless test suite
+make test     # run the headless test suite and re-assert a built bundle
 make run      # launch the built app
 make clean
 ```

@@ -70,7 +70,7 @@ CopyQ Mac 是一个独立的 Swift 实现，它遵循 CopyQ 的操作行为，�
 
 ```sh
 make build    # 构建并打包 CopyQmac.app
-make test     # 运行无头测试套件
+make test     # 运行无头测试套件并校验已构建 bundle 的资源
 make run      # 启动构建好的应用
 make clean
 ```
