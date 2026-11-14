@@ -117,7 +117,7 @@ dmg: build
 test: $(TEST_BINARY)
 	$(TEST_BINARY)
 	tools/copyq-sync-tests.sh
-	@if [ -d $(BUNDLE)/Contents/Resources ]; then \
+	@if [ -d $(BUNDLE) ]; then \
 		tools/assert-bundle-resources.sh $(BUNDLE); \
 	fi
 

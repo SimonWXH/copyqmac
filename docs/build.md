@@ -416,13 +416,12 @@ Tools. `tests/` contains a small assertion harness and the suites:
 - bundle resource validation: the assertion script
   (`tools/assert-bundle-resources.sh`) run against temporary bundles, accepting
   resources that match the source tree, and failing loudly with the offending
-  name when the bundle holds a stale or untracked resource or a source resource
-  never reached it
+  name when the bundle holds a stale or untracked resource, a source resource
+  never reached it, or a bundled copy differs from its source
 
 `make test` additionally runs the same script against `build/CopyQmac.app` when
-that bundle already has a `Contents/Resources` directory, so a stale bundle fails
-the test target as well as the build; a tree with no built bundle skips that
-step.
+that bundle exists, so a stale or half-staged bundle fails the test target as
+well as the build; a tree with no built bundle skips that step.
 
 Most of the suite runs without a window server or a GUI session. The row-height
 and styled-editor tests lay out real AppKit views, and the editor focus, font

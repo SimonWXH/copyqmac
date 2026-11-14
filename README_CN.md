@@ -75,10 +75,11 @@ make run      # 启动构建好的应用
 make clean
 ```
 
-如需安装该应用，将构建生成的 bundle 复制到 `/Applications` 即可：
+如需安装该应用，将构建生成的 bundle 复制到 `/Applications` 即可（复制前先删除已有 bundle，以免 `ditto` 合并进上一次构建残留的内容）：
 
 ```sh
 make build
+rm -rf /Applications/CopyQmac.app
 ditto build/CopyQmac.app /Applications/CopyQmac.app
 ```
 
