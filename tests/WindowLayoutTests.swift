@@ -825,72 +825,76 @@ func registerWindowLayoutTests() {
         expectEqual(button.isSidebarVisible, true, "button reflects visible state")
     }
 
-    TestRunner.add("sidebar toggle button stays at fixed location in expanded and collapsed states") {
+    TestRunner.add("sidebar toggle button sits right of the title and stays put across toggles") {
         MainActor.assumeIsolated {
             do {
-                let expandedHarness = try LayoutBWindowHarness(root: .layoutB, initialColumnVisibility: .all)
-                defer { expandedHarness.close() }
-                expandedHarness.settle(0.4)
+                let harness = try LayoutBWindowHarness(root: .layoutB)
+                defer { harness.close() }
+                harness.settle(0.4)
 
-                expect(expandedHarness.sidebarTable != nil, "sidebar is rendered in expanded state")
-
+                expect(!harness.isSidebarCollapsed, "the sidebar starts expanded")
                 expectNil(
-                    expandedHarness.automaticSidebarToggleItem,
+                    harness.automaticSidebarToggleItem,
                     "the automatic drifting sidebar toggle toolbar item is removed"
                 )
                 expectEqual(
-                    expandedHarness.sidebarToggleToolbarItems.count,
+                    harness.sidebarToggleToolbarItems.count,
                     1,
-                    "exactly one sidebar toggle button is in the expanded toolbar"
+                    "exactly one sidebar toggle button is in the toolbar"
                 )
 
-                guard let expandedView = expandedHarness.sidebarToggleToolbarItems.first?.view else {
-                    TestRunner.fail("could not find SidebarToggleButton toolbar item view in expanded window")
+                guard let expandedView = harness.sidebarToggleToolbarItems.first?.view else {
+                    TestRunner.fail("could not find SidebarToggleButton toolbar item view")
                     return
                 }
-
                 let expandedFrame = expandedView.convert(expandedView.bounds, to: nil)
+                expect(
+                    expandedFrame.minX >= 240,
+                    "toggle button sits right of the window title, got x=\(expandedFrame.minX)"
+                )
                 expectEqual(expandedFrame.width, 28, accuracy: 0.5, "toggle button width is 28pt")
                 expectEqual(expandedFrame.height, 28, accuracy: 0.5, "toggle button height is 28pt")
 
-                let collapsedHarness = try LayoutBWindowHarness(root: .layoutB, initialColumnVisibility: .detailOnly)
-                defer { collapsedHarness.close() }
-                collapsedHarness.settle(0.4)
+                expect(harness.clickSidebarToggle(), "the toggle button receives the click")
+                expect(harness.isSidebarCollapsed, "clicking the toggle collapses the sidebar")
 
-                expect(collapsedHarness.isSidebarCollapsed, "sidebar is collapsed in the collapsed state")
-
-                expectNil(
-                    collapsedHarness.automaticSidebarToggleItem,
-                    "the automatic drifting sidebar toggle toolbar item stays removed when collapsed"
-                )
-                expectEqual(
-                    collapsedHarness.sidebarToggleToolbarItems.count,
-                    1,
-                    "exactly one sidebar toggle button is in the collapsed toolbar"
-                )
-
-                guard let collapsedView = collapsedHarness.sidebarToggleToolbarItems.first?.view else {
-                    TestRunner.fail("could not find SidebarToggleButton toolbar item view in collapsed window")
+                guard let collapsedView = harness.sidebarToggleToolbarItems.first?.view else {
+                    TestRunner.fail("could not find SidebarToggleButton toolbar item view after collapsing")
                     return
                 }
-
                 let collapsedFrame = collapsedView.convert(collapsedView.bounds, to: nil)
                 expectEqual(
                     collapsedFrame.origin.x,
                     expandedFrame.origin.x,
                     accuracy: 0.5,
-                    "toggle button X coordinate does not move between expanded and collapsed states"
+                    "collapsing the sidebar does not move the toggle button horizontally"
                 )
                 expectEqual(
                     collapsedFrame.origin.y,
                     expandedFrame.origin.y,
                     accuracy: 0.5,
-                    "toggle button Y coordinate does not move between expanded and collapsed states"
+                    "collapsing the sidebar does not move the toggle button vertically"
+                )
+
+                expect(harness.clickSidebarToggle(), "the toggle button receives the second click")
+                expect(!harness.isSidebarCollapsed, "clicking the toggle expands the sidebar again")
+
+                guard let reexpandedView = harness.sidebarToggleToolbarItems.first?.view else {
+                    TestRunner.fail("could not find SidebarToggleButton toolbar item view after expanding")
+                    return
+                }
+                let reexpandedFrame = reexpandedView.convert(reexpandedView.bounds, to: nil)
+                expectEqual(
+                    reexpandedFrame.origin.x,
+                    expandedFrame.origin.x,
+                    accuracy: 0.5,
+                    "expanding the sidebar does not move the toggle button horizontally"
                 )
                 expectEqual(
-                    collapsedFrame.size,
-                    expandedFrame.size,
-                    "toggle button size remains identical in both states"
+                    reexpandedFrame.origin.y,
+                    expandedFrame.origin.y,
+                    accuracy: 0.5,
+                    "expanding the sidebar does not move the toggle button vertically"
                 )
             } catch {
                 TestRunner.fail("threw \(error)")
@@ -1045,19 +1049,12 @@ private final class SidebarToggleHarness {
 private struct LayoutBRoot: View {
     @ObservedObject var model: AppModel
     @FocusState private var searchFocused: Bool
-    let initialColumnVisibility: NavigationSplitViewVisibility
-
-    init(model: AppModel, initialColumnVisibility: NavigationSplitViewVisibility = .all) {
-        self.model = model
-        self.initialColumnVisibility = initialColumnVisibility
-    }
 
     var body: some View {
         LayoutBView(
             model: model,
             searchFocused: $searchFocused,
-            onDismiss: {},
-            initialColumnVisibility: initialColumnVisibility
+            onDismiss: {}
         )
     }
 }
@@ -1084,8 +1081,7 @@ private final class LayoutBWindowHarness {
     init(
         inspectorSplitRatio: Double = 0.55,
         root: Root = .mainWindow,
-        size: NSSize = NSSize(width: 900, height: 460),
-        initialColumnVisibility: NavigationSplitViewVisibility = .all
+        size: NSSize = NSSize(width: 900, height: 460)
     ) throws {
         _ = NSApplication.shared
         let store = try ClipboardStore(inMemory: true)
@@ -1110,7 +1106,7 @@ private final class LayoutBWindowHarness {
         case .mainWindow:
             hosting = NSHostingView(rootView: AnyView(MainWindowView(model: model, onDismiss: {})))
         case .layoutB:
-            hosting = NSHostingView(rootView: AnyView(LayoutBRoot(model: model, initialColumnVisibility: initialColumnVisibility)))
+            hosting = NSHostingView(rootView: AnyView(LayoutBRoot(model: model)))
         }
         hosting.frame = NSRect(origin: .zero, size: size)
         window = KeyableWindow(
@@ -1182,15 +1178,28 @@ private final class LayoutBWindowHarness {
 
     var sidebarTable: NSTableView? { Self.firstTableView(in: hosting) }
 
-    /// Whether the split item that hosts the sidebar is collapsed, which is how
-    /// `NavigationSplitView` renders `.detailOnly` in a hosted window: the
-    /// sidebar keeps its stored width and view hierarchy but is not shown.
+    /// Whether the split item that hosts the sidebar is collapsed. The split
+    /// item reports the `NavigationSplitView` state directly, while
+    /// `NSSplitView.isSubviewCollapsed` stays false until the collapse animation
+    /// completes, which an unshown window never does.
     var isSidebarCollapsed: Bool {
         guard let contentView = window.contentView,
               let splitView = Self.firstSplitView(in: contentView),
-              let sidebar = splitView.arrangedSubviews.first
+              let controller = Self.splitViewController(for: splitView),
+              let sidebar = controller.splitViewItems.first
         else { return false }
-        return splitView.isSubviewCollapsed(sidebar)
+        return sidebar.isCollapsed
+    }
+
+    @discardableResult
+    func clickSidebarToggle() -> Bool {
+        guard let view = sidebarToggleToolbarItems.first?.view,
+              let events = click(on: view)
+        else { return false }
+        window.sendEvent(events.down)
+        window.sendEvent(events.up)
+        settle(0.3)
+        return true
     }
 
     @discardableResult
@@ -1313,6 +1322,15 @@ private final class LayoutBWindowHarness {
         if let divider = view as? InspectorDividerNSView { return divider }
         for subview in view.subviews {
             if let found = firstDivider(in: subview) { return found }
+        }
+        return nil
+    }
+
+    private static func splitViewController(for view: NSView) -> NSSplitViewController? {
+        var responder: NSResponder? = view
+        while let current = responder {
+            if let controller = current as? NSSplitViewController { return controller }
+            responder = current.nextResponder
         }
         return nil
     }

@@ -160,6 +160,56 @@ struct SidebarToggleButton: View {
     }
 }
 
+/// Pins the toolbar item that hosts the sidebar toggle to the spot right of the
+/// window title, so clicking the toggle never moves it.
+private struct ToolbarToggleAnchor: NSViewRepresentable {
+    func makeNSView(context: Context) -> AnchorView {
+        AnchorView()
+    }
+
+    func updateNSView(_ nsView: AnchorView, context: Context) {
+        nsView.pin()
+    }
+
+    final class AnchorView: NSView {
+        static let targetX: CGFloat = 256
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            NotificationCenter.default.removeObserver(self)
+            guard let viewer = toolbarItemViewer else { return }
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(pin),
+                name: NSView.frameDidChangeNotification,
+                object: viewer
+            )
+            pin()
+        }
+
+        override func layout() {
+            super.layout()
+            pin()
+        }
+
+        @objc func pin() {
+            guard let viewer = toolbarItemViewer, viewer.frame.origin.x != Self.targetX else { return }
+            viewer.frame.origin.x = Self.targetX
+        }
+
+        private var toolbarItemViewer: NSView? {
+            var view = superview
+            while let current = view {
+                if String(describing: type(of: current)) == "NSToolbarItemViewer" {
+                    return current
+                }
+                view = current.superview
+            }
+            return nil
+        }
+    }
+}
+
 // MARK: - Layout B (Sidebar + Inspector)
 
 struct LayoutBView: View {
@@ -167,22 +217,10 @@ struct LayoutBView: View {
     @FocusState.Binding var searchFocused: Bool
     let onDismiss: () -> Void
 
-    @State private var columnVisibility: NavigationSplitViewVisibility
+    @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var isInspectorVisible = true
     @State private var noteFocused = false
     @State private var dragRatio: Double?
-
-    init(
-        model: AppModel,
-        searchFocused: FocusState<Bool>.Binding,
-        onDismiss: @escaping () -> Void,
-        initialColumnVisibility: NavigationSplitViewVisibility = .all
-    ) {
-        self.model = model
-        self._searchFocused = searchFocused
-        self.onDismiss = onDismiss
-        self._columnVisibility = State(initialValue: initialColumnVisibility)
-    }
 
     private var selectedEntry: ClipboardEntry? {
         guard let id = model.selection.selectedEntryID else { return nil }
@@ -349,6 +387,7 @@ struct LayoutBView: View {
                     columnVisibility: $columnVisibility,
                     language: lang
                 )
+                .background(ToolbarToggleAnchor())
             }
         }
         .onChange(of: model.focusNoteToken) { _, _ in noteFocused = true }
