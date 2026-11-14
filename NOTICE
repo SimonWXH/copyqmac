@@ -1,0 +1,14 @@
+copyq-macos
+===========
+
+A personal, native macOS reimplementation of CopyQ.
+
+Behaviour, data formats, and the overall feature set are modelled on CopyQ,
+Copyright (C) 2009-2024 Lukas Holecek and contributors, licensed under the
+GNU General Public License version 3.
+Upstream project: https://github.com/hluk/CopyQ
+
+This project reads data files written by CopyQ but does not link against or
+embed CopyQ code. Any portion of the implementation that is a port or
+translation of CopyQ source remains under the GNU General Public License
+version 3, the same licence as this repository.

@@ -1,0 +1,124 @@
+# CI for copyq-macos.
+#
+# The pull-request gate. Every pull request that changes more than documentation
+# builds and tests the code in this repository through its own Makefile targets;
+# the workflow does not repeat any compiler or test command.
+#
+# Triggers: `pull_request`, plus `workflow_dispatch` to validate a branch or
+# `main` on demand. There is deliberately no `push` trigger: every merge here is
+# a squash merge, so the commit that lands on `main` carries exactly the tree of
+# the `pull_request` head that was built and tested, provided the base branch did
+# not move between that run and the merge. A second full macOS job for it would
+# only re-validate identical code. The tradeoff is that `main` is not validated
+# automatically after a merge: after a direct push to `main`, or a merge whose
+# tree differs from the tested pull-request head, including one whose base moved,
+# start this workflow manually with `workflow_dispatch`.
+#
+# Documentation-only pull requests: a change that touches only markdown files,
+# the root `NOTICE` text, or the `LICENSE` text still reports the required
+# `build-and-test` check, but skips the build and tests from a classifier step
+# that finishes in seconds. Anything outside that set, including a rename that
+# moves a file across the boundary, runs the full build and tests. This is a
+# step-level skip, not a workflow-level `paths-ignore`, because `paths-ignore`
+# would leave the required check missing instead of successful.
+#
+# Concurrency: superseded pull-request runs are cancelled to save minutes. Runs
+# are never cancelled on `main`; a `workflow_dispatch` run there is explicit and
+# must be allowed to finish.
+#
+# Runner: `macos-26` (GitHub-hosted, arm64, 3 vCPU).
+#   - The repository has no self-hosted runners (the Actions runners API
+#     reports total_count 0), so only GitHub-hosted labels apply.
+#   - `macos-26` is the hosted image backed by macOS 26 and Xcode 26, so it
+#     ships the macOS 26 SDK and a Swift 6 toolchain. `macos-15` and `macos-14`
+#     predate that SDK; `macos-26-intel` would double the metered minutes for
+#     no extra coverage, so this stays a single arm64 job.
+#   - `xcode-select` on the image points at Xcode 26.6 rather than the Command
+#     Line Tools used locally. The Toolchain step prints the exact selection.
+#     The build itself still uses only `swiftc` and the SDK: no `xcodebuild`
+#     and no Xcode project, so it does not depend on a full Xcode install.
+#
+# Cost: one job, no matrix, no services, and no cache. A cache of the Swift
+# build products was measured and rejected: a key that includes the sources can
+# never hit for this workload (every non-documentation pull request changes
+# sources, and all 66 runs recorded before this change used 66 distinct
+# commits), and a partial restore cannot skip work because each `swiftc`
+# invocation compiles whole modules from all sources. The cache would add
+# restore and save time to every run and save none.
+
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: build-and-test
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      # The classifier diffs the pull request's base against its head, so both
+      # commits and their merge base have to be present.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Classify change
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          docs_only=false
+          changed=""
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            if changed="$(git diff --name-only --no-renames "${BASE_SHA}...${HEAD_SHA}")" && [ -n "${changed}" ]; then
+              docs_only=true
+              while IFS= read -r path; do
+                case "${path}" in
+                  *.md|NOTICE|LICENSE) ;;
+                  *)
+                    docs_only=false
+                    break
+                    ;;
+                esac
+              done <<< "${changed}"
+            fi
+          fi
+          if [ "${docs_only}" = "true" ]; then
+            echo "Documentation-only pull request; build and tests will be skipped:"
+            printf '%s\n' "${changed}"
+          else
+            echo "Running the full build and tests."
+          fi
+          echo "docs_only=${docs_only}" >> "${GITHUB_OUTPUT}"
+
+      - name: Documentation-only
+        if: steps.classify.outputs.docs_only == 'true'
+        run: echo "Only documentation changed; nothing to build or test."
+
+      # Make the runner's toolchain visible: locally the Command Line Tools are
+      # selected, while this image defaults to the Xcode 26.6 toolchain. Both
+      # provide the macOS 26 SDK that the Makefile targets.
+      - name: Toolchain
+        if: steps.classify.outputs.docs_only != 'true'
+        run: |
+          swift --version
+          xcrun --sdk macosx --show-sdk-path
+          xcrun --sdk macosx --show-sdk-version
+
+      - name: Build
+        if: steps.classify.outputs.docs_only != 'true'
+        run: make build
+
+      - name: Test
+        if: steps.classify.outputs.docs_only != 'true'
+        run: make test
