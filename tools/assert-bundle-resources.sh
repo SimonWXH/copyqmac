@@ -45,6 +45,7 @@ while IFS= read -r -d '' file; do
 done < <(find "${resources_dir}" -mindepth 1 \( -type f -o -type l \) -print0)
 
 missing_count=0
+differing_count=0
 while IFS= read -r -d '' file; do
     rel="${file#"${source_dir}/"}"
     staged="${resources_dir}/${rel}"
@@ -53,12 +54,12 @@ while IFS= read -r -d '' file; do
         missing_count=$((missing_count + 1))
     elif ! cmp -s "${file}" "${staged}"; then
         echo "error: bundle resource differs from source: ${rel} (content does not match ${file})" >&2
-        missing_count=$((missing_count + 1))
+        differing_count=$((differing_count + 1))
     fi
 done < <(find "${source_dir}" -mindepth 1 \( -type f -o -type l \) -print0)
 
-if [ "${unexpected_count}" -gt 0 ] || [ "${missing_count}" -gt 0 ]; then
-    echo "error: bundle resources do not match ${source_dir}: ${unexpected_count} unexpected, ${missing_count} missing" >&2
+if [ "${unexpected_count}" -gt 0 ] || [ "${missing_count}" -gt 0 ] || [ "${differing_count}" -gt 0 ]; then
+    echo "error: bundle resources do not match ${source_dir}: ${unexpected_count} unexpected, ${missing_count} missing, ${differing_count} differing" >&2
     exit 1
 fi
 

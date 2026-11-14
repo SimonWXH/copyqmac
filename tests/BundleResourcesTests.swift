@@ -129,4 +129,28 @@ func registerBundleResourcesTests() {
             TestRunner.fail("setup failed: \(error)")
         }
     }
+
+    TestRunner.add("assertion script reports a differing copy as differing, not missing") {
+        do {
+            let fixture = try makeFixture()
+            defer { fixture.remove() }
+
+            try "regenerated-icon-data".data(using: .utf8)!
+                .write(to: fixture.bundleResources.appendingPathComponent("AppIcon.icns"))
+
+            let result = runScript(bundlePath: fixture.bundle.path, sourcePath: fixture.sourceResources.path)
+
+            expectNotEqual(result.exitCode, 0, "script must fail when a staged resource differs from its source")
+            expect(
+                result.stderr.contains("differs from source"),
+                "error message must explain the differing resource: got '\(result.stderr)'"
+            )
+            expect(
+                result.stderr.contains("0 unexpected, 0 missing, 1 differing"),
+                "summary must count a differing copy under its own label: got '\(result.stderr)'"
+            )
+        } catch {
+            TestRunner.fail("setup failed: \(error)")
+        }
+    }
 }
