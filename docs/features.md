@@ -16,8 +16,10 @@ Detailed reference for CopyQ Mac features, implementation behaviours, and data m
   preview pane with the note editor, and status bar) and Layout B
   (a native collapsible tab sidebar with per-tab counts and a capture badge, a
   unified toolbar holding the search field, scope picker, and inspector toggle,
-  the item list in the centre, and a trailing inspector with entry metadata above
-  a resizable preview and note). Layout B is the default arrangement, including for
+  the item list in the centre with responsive primary text wrapping up to a
+  6-line cap, and a trailing inspector with entry metadata above a resizable
+  preview and note, its column width set by a leading-edge drag handle and
+  restored on relaunch). Layout B is the default arrangement, including for
   an install whose preferences predate the layout control; a missing or unknown
   stored value also falls back to Layout B, and users can switch between Layout A and
   Layout B at runtime in Preferences ▸ History ▸ Appearance (Window layout: Top tabs /

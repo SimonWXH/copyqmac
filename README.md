@@ -91,8 +91,10 @@ approximation of it.
 
 - Two window layouts, switchable at runtime in Preferences ▸ History ▸ Appearance: a classic
   arrangement with tabs across the top and a bottom preview pane, and a sidebar layout
-  with a collapsible tab sidebar, a unified toolbar and a trailing inspector whose
-  preview and note share one column through a draggable divider.
+  with a collapsible tab sidebar, a unified toolbar and a trailing inspector that resizes
+  from its leading edge and remembers the chosen width, its preview and note sharing one
+  column through a draggable divider. Item text wraps to fit a narrower list,
+  up to six lines.
 - Light and dark appearance, either following the system or pinned manually.
 - Bilingual interface, English and 简体中文, switchable in Preferences.
 

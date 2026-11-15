@@ -145,6 +145,53 @@ public enum SidebarLayout {
     }
 }
 
+extension SidebarLayout: ColumnWidthLayout {
+    /// The sidebar width does not depend on the detail container.
+    public static func clampWidth(_ width: Double, containerWidth: CGFloat) -> Double {
+        clampWidth(width)
+    }
+}
+
+/// Geometry and clamping logic for the inspector column in Layout B.
+public enum InspectorColumnLayout {
+    public static let defaultWidth: Double = 280
+    public static let minWidth: Double = 240
+    public static let maxWidth: Double = 560
+    public static let minItemListWidth: CGFloat = 320
+
+    /// Clamps an inspector width to the allowed 240...560 range.
+    public static func clampWidth(_ width: Double) -> Double {
+        min(max(width, minWidth), maxWidth)
+    }
+
+    /// Clamps an inspector width within the allowed range and available
+    /// container width. Whenever the container is at least 560 pt wide
+    /// (minWidth + minItemListWidth), the maximum leaves the center item list
+    /// at least minItemListWidth (320 pt). A narrower container cannot fit
+    /// both minimums, so the inspector keeps its 240 pt minimum and the item
+    /// list takes whatever remains.
+    public static func clampWidth(_ width: Double, containerWidth: CGFloat) -> Double {
+        guard containerWidth > 0 else { return clampWidth(width) }
+        guard containerWidth >= minWidth + Double(minItemListWidth) else { return minWidth }
+        let maxAllowedByContainer = Double(containerWidth) - Double(minItemListWidth)
+        return min(max(width, minWidth), min(maxWidth, maxAllowedByContainer))
+    }
+
+    /// Computes the proposed inspector width given a drag translation and base width.
+    /// Dragging the left handle to the left (negative translation) expands the inspector;
+    /// dragging to the right (positive translation) shrinks it.
+    public static func width(
+        baseWidth: Double,
+        translationX: CGFloat,
+        containerWidth: CGFloat = 0
+    ) -> Double {
+        let proposed = baseWidth - Double(translationX)
+        return clampWidth(proposed, containerWidth: containerWidth)
+    }
+}
+
+extension InspectorColumnLayout: ColumnWidthLayout {}
+
 /// A font the user chose for one surface: a family name and a point size.
 ///
 /// The core layer has no AppKit, so the choice is stored as data and resolved to
@@ -230,6 +277,8 @@ public struct Preferences: Codable, Equatable, Sendable {
     public var inspectorSplitRatio: Double
     /// Width of the sidebar column in Layout B (160...260 pt). Defaults to 200.
     public var sidebarWidth: Double
+    /// Width of the inspector column in Layout B (240...560 pt). Defaults to 280.
+    public var inspectorColumnWidth: Double
 
     private enum CodingKeys: String, CodingKey {
         case hotKeyKeyCode
@@ -251,6 +300,7 @@ public struct Preferences: Codable, Equatable, Sendable {
         case windowLayout = "windowLayoutChoice"
         case inspectorSplitRatio
         case sidebarWidth
+        case inspectorColumnWidth
         case legacyWindowLayout = "windowLayout"
     }
 
@@ -275,7 +325,8 @@ public struct Preferences: Codable, Equatable, Sendable {
         editorFont: .defaultValue,
         windowLayout: .layoutB,
         inspectorSplitRatio: InspectorSplitLayout.defaultRatio,
-        sidebarWidth: SidebarLayout.defaultWidth
+        sidebarWidth: SidebarLayout.defaultWidth,
+        inspectorColumnWidth: InspectorColumnLayout.defaultWidth
     )
 
     public init(
@@ -297,7 +348,8 @@ public struct Preferences: Codable, Equatable, Sendable {
         editorFont: FontPreference = .defaultValue,
         windowLayout: WindowLayout = .layoutB,
         inspectorSplitRatio: Double = InspectorSplitLayout.defaultRatio,
-        sidebarWidth: Double = SidebarLayout.defaultWidth
+        sidebarWidth: Double = SidebarLayout.defaultWidth,
+        inspectorColumnWidth: Double = InspectorColumnLayout.defaultWidth
     ) {
         self.hotKeyKeyCode = hotKeyKeyCode
         self.hotKeyModifiers = hotKeyModifiers
@@ -318,6 +370,7 @@ public struct Preferences: Codable, Equatable, Sendable {
         self.windowLayout = windowLayout
         self.inspectorSplitRatio = InspectorSplitLayout.clampRatio(inspectorSplitRatio)
         self.sidebarWidth = SidebarLayout.clampWidth(sidebarWidth)
+        self.inspectorColumnWidth = InspectorColumnLayout.clampWidth(inspectorColumnWidth)
     }
 
     /// Tolerant decoding: unknown or missing fields fall back to defaults so a
@@ -364,6 +417,10 @@ public struct Preferences: Codable, Equatable, Sendable {
             (try? container.decode(Double.self, forKey: .sidebarWidth))
                 ?? fallback.sidebarWidth
         )
+        inspectorColumnWidth = InspectorColumnLayout.clampWidth(
+            (try? container.decode(Double.self, forKey: .inspectorColumnWidth))
+                ?? fallback.inspectorColumnWidth
+        )
     }
 
     /// Clamps values that would make the app unusable.
@@ -373,6 +430,7 @@ public struct Preferences: Codable, Equatable, Sendable {
         copy.captureExclusions = Preferences.normalizedCaptureExclusions(captureExclusions)
         copy.inspectorSplitRatio = InspectorSplitLayout.clampRatio(copy.inspectorSplitRatio)
         copy.sidebarWidth = SidebarLayout.clampWidth(copy.sidebarWidth)
+        copy.inspectorColumnWidth = InspectorColumnLayout.clampWidth(copy.inspectorColumnWidth)
         return copy
     }
 
