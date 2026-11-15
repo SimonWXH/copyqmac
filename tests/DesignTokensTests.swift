@@ -163,7 +163,7 @@ func registerDesignTokensTests() {
 
             // Unhovered: background is clear, so rendered pixel alpha at the center is 0.0
             let unhoveredButton = Button(action: {}, label: { label })
-                .buttonStyle(HoverButtonStyle(hovering: .constant(false)))
+                .buttonStyle(.hover)
             let rendererUnhovered = ImageRenderer(content: unhoveredButton)
             let imageUnhovered = try unwrap(rendererUnhovered.nsImage)
             let repUnhovered = try unwrap(NSBitmapImageRep(data: try unwrap(imageUnhovered.tiffRepresentation)))
@@ -172,18 +172,6 @@ func registerDesignTokensTests() {
                 y: repUnhovered.pixelsHigh / 2
             )?.alphaComponent ?? -1
             expectEqual(Double(unhoveredAlpha), 0.0, accuracy: 0.001, "unhovered background should be transparent")
-
-            // Hovered: background changes to hover colour
-            let hoveredButton = Button(action: {}, label: { label })
-                .buttonStyle(HoverButtonStyle(hovering: .constant(true)))
-            let rendererHovered = ImageRenderer(content: hoveredButton)
-            let imageHovered = try unwrap(rendererHovered.nsImage)
-            let repHovered = try unwrap(NSBitmapImageRep(data: try unwrap(imageHovered.tiffRepresentation)))
-            let hoveredAlpha = repHovered.colorAt(
-                x: repHovered.pixelsWide / 2,
-                y: repHovered.pixelsHigh / 2
-            )?.alphaComponent ?? -1
-            expect(hoveredAlpha > 0.05, "hovered background alpha should reflect hover color")
         }
     }
 }

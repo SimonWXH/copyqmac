@@ -117,21 +117,6 @@ public enum DesignTokens {
             return resolveItemListFont(preference: preference)
         }
     }
-
-    // MARK: - Reusable Button Styles
-
-    public enum Buttons {
-        /// Unified hover button style using `DesignTokens.Radius.tag`.
-        public static let hover = HoverButtonStyle()
-
-        /// Unified hover button style with custom corner radius and optional hover binding.
-        public static func hover(
-            cornerRadius: CGFloat = DesignTokens.Radius.tag,
-            hovering: Binding<Bool>? = nil
-        ) -> HoverButtonStyle {
-            HoverButtonStyle(cornerRadius: cornerRadius, hovering: hovering)
-        }
-    }
 }
 
 // MARK: - FontPreference Extension
@@ -170,14 +155,9 @@ extension AppTheme {
 /// A button style providing neutral hover and pressed background feedback.
 public struct HoverButtonStyle: ButtonStyle {
     public var cornerRadius: CGFloat
-    public var hovering: Binding<Bool>?
 
-    public init(
-        cornerRadius: CGFloat = DesignTokens.Radius.tag,
-        hovering: Binding<Bool>? = nil
-    ) {
+    public init(cornerRadius: CGFloat = DesignTokens.Radius.tag) {
         self.cornerRadius = cornerRadius
-        self.hovering = hovering
     }
 
     /// Resolves the background colour for the given hover, pressed, and enabled state.
@@ -197,24 +177,15 @@ public struct HoverButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        HoverButtonBody(
-            configuration: configuration,
-            cornerRadius: cornerRadius,
-            externalHovering: hovering
-        )
+        HoverButtonBody(configuration: configuration, cornerRadius: cornerRadius)
     }
 
     private struct HoverButtonBody: View {
         let configuration: Configuration
         let cornerRadius: CGFloat
-        let externalHovering: Binding<Bool>?
 
         @Environment(\.isEnabled) private var isEnabled
-        @State private var internalHovering = false
-
-        private var isHovering: Bool {
-            externalHovering?.wrappedValue ?? internalHovering
-        }
+        @State private var isHovering = false
 
         var body: some View {
             configuration.label
@@ -229,12 +200,10 @@ public struct HoverButtonStyle: ButtonStyle {
                 .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 .onHover { hovering in
                     guard isEnabled else {
-                        if internalHovering { internalHovering = false }
-                        if externalHovering?.wrappedValue == true { externalHovering?.wrappedValue = false }
+                        if isHovering { isHovering = false }
                         return
                     }
-                    internalHovering = hovering
-                    externalHovering?.wrappedValue = hovering
+                    isHovering = hovering
                 }
                 .animation(.easeInOut(duration: 0.12), value: isHovering)
                 .animation(.easeInOut(duration: 0.08), value: configuration.isPressed)
@@ -248,11 +217,8 @@ extension ButtonStyle where Self == HoverButtonStyle {
         HoverButtonStyle()
     }
 
-    /// Unified hover button style with custom corner radius and optional hover binding.
-    public static func hover(
-        cornerRadius: CGFloat = DesignTokens.Radius.tag,
-        hovering: Binding<Bool>? = nil
-    ) -> HoverButtonStyle {
-        HoverButtonStyle(cornerRadius: cornerRadius, hovering: hovering)
+    /// Unified hover button style with a custom corner radius.
+    public static func hover(cornerRadius: CGFloat = DesignTokens.Radius.tag) -> HoverButtonStyle {
+        HoverButtonStyle(cornerRadius: cornerRadius)
     }
 }

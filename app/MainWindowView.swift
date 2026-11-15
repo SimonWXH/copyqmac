@@ -440,7 +440,7 @@ private struct SidebarTabView: View {
                         systemImage: "plus"
                     )
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.hover)
                 .font(DesignTokens.Typography.caption)
                 .help(Localization.string(.tabBarNewTabHelp, language: lang))
 
@@ -910,7 +910,7 @@ private struct TabBarView: View {
                     Image(systemName: "plus")
                         .frame(width: 16, height: 16)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.hover)
                 .help(Localization.string(.tabBarNewTabHelp, language: lang))
                 .padding(.leading, DesignTokens.Spacing.xxSmall)
             }
