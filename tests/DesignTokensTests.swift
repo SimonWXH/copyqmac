@@ -159,22 +159,30 @@ func registerDesignTokensTests() {
 
     TestRunner.add("hover button style updates rendered background on hover transition") {
         try MainActor.assumeIsolated {
-            // Unhovered: background is clear, so rendered pixel alpha at corner inset is 0.0
-            let unhoveredButton = Button("Action") {}
+            let label = Color.clear.frame(width: 40, height: 20)
+
+            // Unhovered: background is clear, so rendered pixel alpha at the center is 0.0
+            let unhoveredButton = Button(action: {}, label: { label })
                 .buttonStyle(HoverButtonStyle(hovering: .constant(false)))
             let rendererUnhovered = ImageRenderer(content: unhoveredButton)
             let imageUnhovered = try unwrap(rendererUnhovered.nsImage)
             let repUnhovered = try unwrap(NSBitmapImageRep(data: try unwrap(imageUnhovered.tiffRepresentation)))
-            let unhoveredAlpha = repUnhovered.colorAt(x: 2, y: 2)?.alphaComponent ?? -1
+            let unhoveredAlpha = repUnhovered.colorAt(
+                x: repUnhovered.pixelsWide / 2,
+                y: repUnhovered.pixelsHigh / 2
+            )?.alphaComponent ?? -1
             expectEqual(Double(unhoveredAlpha), 0.0, accuracy: 0.001, "unhovered background should be transparent")
 
             // Hovered: background changes to hover colour
-            let hoveredButton = Button("Action") {}
+            let hoveredButton = Button(action: {}, label: { label })
                 .buttonStyle(HoverButtonStyle(hovering: .constant(true)))
             let rendererHovered = ImageRenderer(content: hoveredButton)
             let imageHovered = try unwrap(rendererHovered.nsImage)
             let repHovered = try unwrap(NSBitmapImageRep(data: try unwrap(imageHovered.tiffRepresentation)))
-            let hoveredAlpha = repHovered.colorAt(x: 2, y: 2)?.alphaComponent ?? -1
+            let hoveredAlpha = repHovered.colorAt(
+                x: repHovered.pixelsWide / 2,
+                y: repHovered.pixelsHigh / 2
+            )?.alphaComponent ?? -1
             expect(hoveredAlpha > 0.05, "hovered background alpha should reflect hover color")
         }
     }
