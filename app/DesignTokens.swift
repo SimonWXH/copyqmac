@@ -154,11 +154,7 @@ extension AppTheme {
 
 /// A button style providing neutral hover and pressed background feedback.
 public struct HoverButtonStyle: ButtonStyle {
-    public var cornerRadius: CGFloat
-
-    public init(cornerRadius: CGFloat = DesignTokens.Radius.tag) {
-        self.cornerRadius = cornerRadius
-    }
+    public init() {}
 
     /// Resolves the background colour for the given hover, pressed, and enabled state.
     public static func backgroundColor(
@@ -177,12 +173,11 @@ public struct HoverButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        HoverButtonBody(configuration: configuration, cornerRadius: cornerRadius)
+        HoverButtonBody(configuration: configuration)
     }
 
     private struct HoverButtonBody: View {
         let configuration: Configuration
-        let cornerRadius: CGFloat
 
         @Environment(\.isEnabled) private var isEnabled
         @State private var isHovering = false
@@ -190,14 +185,14 @@ public struct HoverButtonStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .background(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    RoundedRectangle(cornerRadius: DesignTokens.Radius.tag, style: .continuous)
                         .fill(HoverButtonStyle.backgroundColor(
                             isHovering: isHovering,
                             isPressed: configuration.isPressed,
                             isEnabled: isEnabled
                         ))
                 )
-                .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.tag, style: .continuous))
                 .onHover { hovering in
                     guard isEnabled else {
                         if isHovering { isHovering = false }
@@ -215,10 +210,5 @@ extension ButtonStyle where Self == HoverButtonStyle {
     /// Unified hover button style using `DesignTokens.Radius.tag`.
     public static var hover: HoverButtonStyle {
         HoverButtonStyle()
-    }
-
-    /// Unified hover button style with a custom corner radius.
-    public static func hover(cornerRadius: CGFloat = DesignTokens.Radius.tag) -> HoverButtonStyle {
-        HoverButtonStyle(cornerRadius: cornerRadius)
     }
 }

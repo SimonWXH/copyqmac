@@ -520,7 +520,6 @@ private struct IgnoredAppsPreferences: View {
                             Image(systemName: "trash")
                         }
                         .buttonStyle(.hover)
-                        .foregroundStyle(DesignTokens.Colors.destructive)
                         .help(Localization.format(.settingsRemoveAppHelp, language: lang, rule.name))
                     }
                 }
@@ -698,7 +697,6 @@ struct TabSettingsRow: View {
                     Image(systemName: "trash")
                 }
                 .buttonStyle(.hover)
-                .foregroundStyle(DesignTokens.Colors.destructive)
                 .disabled(model.tabs.count <= 1)
                 .help(Localization.string(.settingsTabRemoveHelp, language: lang))
             }
