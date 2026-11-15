@@ -1,0 +1,326 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// SidebarWidthTests.swift
+//
+// Headless tests for Layout B sidebar column width persistence, clamping,
+// and debounced commit behavior.
+
+import Foundation
+
+func registerSidebarWidthTests() {
+    TestRunner.currentSuite = "SidebarWidth"
+
+    // MARK: - Clamping and Constraints
+
+    TestRunner.add("SidebarLayout clamping enforces 160...260 range") {
+        expectEqual(SidebarLayout.defaultWidth, 200)
+        expectEqual(SidebarLayout.minWidth, 160)
+        expectEqual(SidebarLayout.maxWidth, 260)
+
+        // Below minimum
+        expectEqual(SidebarLayout.clampWidth(159), 160)
+        expectEqual(SidebarLayout.clampWidth(100), 160)
+        expectEqual(SidebarLayout.clampWidth(0), 160)
+        expectEqual(SidebarLayout.clampWidth(-50), 160)
+
+        // Above maximum
+        expectEqual(SidebarLayout.clampWidth(261), 260)
+        expectEqual(SidebarLayout.clampWidth(500), 260)
+        expectEqual(SidebarLayout.clampWidth(1000), 260)
+
+        // In range
+        expectEqual(SidebarLayout.clampWidth(160), 160)
+        expectEqual(SidebarLayout.clampWidth(200), 200)
+        expectEqual(SidebarLayout.clampWidth(255.5), 255.5)
+        expectEqual(SidebarLayout.clampWidth(260), 260)
+    }
+
+    // MARK: - Preferences Default & Serialization
+
+    TestRunner.add("sidebarWidth defaults to 200 in Preferences.defaultValue") {
+        let prefs = Preferences.defaultValue
+        expectEqual(prefs.sidebarWidth, 200)
+    }
+
+    TestRunner.add("sidebarWidth decode fallback for missing key resolves to default") {
+        let json = #"{"defaultMaxItems":250,"language":"en"}"#
+        let decoded = try JSONDecoder().decode(Preferences.self, from: Data(json.utf8))
+        expectEqual(decoded.sidebarWidth, 200, "missing sidebarWidth must fall back to 200")
+    }
+
+    TestRunner.add("sidebarWidth in json is clamped on decode") {
+        let jsonLow = #"{"sidebarWidth":50.0}"#
+        let decodedLow = try JSONDecoder().decode(Preferences.self, from: Data(jsonLow.utf8))
+        expectEqual(decodedLow.sidebarWidth, 160, "sub-minimum width is clamped to 160")
+
+        let jsonHigh = #"{"sidebarWidth":750.0}"#
+        let decodedHigh = try JSONDecoder().decode(Preferences.self, from: Data(jsonHigh.utf8))
+        expectEqual(decodedHigh.sidebarWidth, 260, "above-maximum width is clamped to 260")
+
+        let jsonValid = #"{"sidebarWidth":220.0}"#
+        let decodedValid = try JSONDecoder().decode(Preferences.self, from: Data(jsonValid.utf8))
+        expectEqual(decodedValid.sidebarWidth, 220, "valid width is preserved")
+    }
+
+    TestRunner.add("sidebarWidth survives store round-trip") {
+        let store = try ClipboardStore(inMemory: true)
+        var prefs = try store.preferences()
+        expectEqual(prefs.sidebarWidth, 200, "fresh store defaults to 200")
+
+        prefs.sidebarWidth = 240
+        try store.setPreferences(prefs)
+
+        let reloaded = try store.preferences()
+        expectEqual(reloaded.sidebarWidth, 240, "persisted sidebarWidth is restored")
+
+        prefs.sidebarWidth = 175
+        try store.setPreferences(prefs)
+
+        let reloadedB = try store.preferences()
+        expectEqual(reloadedB.sidebarWidth, 175, "updated sidebarWidth is restored")
+    }
+
+    TestRunner.add("sanitized preferences clamps sidebarWidth") {
+        var prefs = Preferences.defaultValue
+        prefs.sidebarWidth = 999
+        let sanitizedHigh = prefs.sanitized()
+        expectEqual(sanitizedHigh.sidebarWidth, 260)
+
+        prefs.sidebarWidth = 20
+        let sanitizedLow = prefs.sanitized()
+        expectEqual(sanitizedLow.sidebarWidth, 160)
+    }
+
+    // MARK: - Draft Decision Rules
+
+    TestRunner.add("SidebarWidthDraft records valid widths and rejects collapsed or sub-min widths") {
+        var draft = SidebarWidthDraft()
+        expectEqual(draft.hasPendingCommit, false, "fresh draft has nothing pending")
+
+        // Valid drag from 200 to 250
+        expect(
+            draft.record(measuredWidth: 250, isCollapsed: false, currentStoredWidth: 200),
+            "recording a valid changed width schedules a commit"
+        )
+        expectEqual(draft.hasPendingCommit, true)
+        expectEqual(draft.pendingValue, 250)
+
+        expectEqual(draft.takeCommit(), 250, "takeCommit returns the recorded width")
+        expectEqual(draft.hasPendingCommit, false, "taking commit clears pending")
+        expectNil(draft.takeCommit(), "subsequent take returns nil")
+
+        // Measurement when collapsed must be rejected
+        expectEqual(
+            draft.record(measuredWidth: 250, isCollapsed: true, currentStoredWidth: 200),
+            false,
+            "collapsed measurement is rejected"
+        )
+        expectEqual(draft.hasPendingCommit, false)
+
+        // Measurement below minimum (e.g. during collapse animation) must be rejected
+        expectEqual(
+            draft.record(measuredWidth: 120, isCollapsed: false, currentStoredWidth: 200),
+            false,
+            "width below minimum is rejected"
+        )
+        expectEqual(draft.hasPendingCommit, false)
+    }
+
+    TestRunner.add("SidebarWidthDraft ignores changes within tolerance of current stored width") {
+        var draft = SidebarWidthDraft()
+
+        // Exact match
+        expectEqual(
+            draft.record(measuredWidth: 200, isCollapsed: false, currentStoredWidth: 200),
+            false,
+            "identical width schedules no write"
+        )
+        expectNil(draft.takeCommit())
+
+        // Within 0.5 pt tolerance
+        expectEqual(
+            draft.record(measuredWidth: 200.3, isCollapsed: false, currentStoredWidth: 200),
+            false,
+            "sub-pixel noise schedules no write"
+        )
+        expectNil(draft.takeCommit())
+
+        expectEqual(
+            draft.record(measuredWidth: 199.7, isCollapsed: false, currentStoredWidth: 200),
+            false,
+            "negative sub-pixel noise schedules no write"
+        )
+        expectNil(draft.takeCommit())
+    }
+
+    TestRunner.add("SidebarWidthDraft clamps recorded values to allowed range") {
+        var draft = SidebarWidthDraft()
+
+        expect(
+            draft.record(measuredWidth: 500, isCollapsed: false, currentStoredWidth: 200),
+            "oversized drag schedules write"
+        )
+        expectEqual(draft.takeCommit(), 260, "oversized drag is clamped to max width 260")
+    }
+
+    TestRunner.add("SidebarWidthDraft keeps only the latest dragged width") {
+        var draft = SidebarWidthDraft()
+
+        expect(draft.record(measuredWidth: 220, isCollapsed: false, currentStoredWidth: 200))
+        expect(draft.record(measuredWidth: 245, isCollapsed: false, currentStoredWidth: 200))
+        expect(draft.record(measuredWidth: 255, isCollapsed: false, currentStoredWidth: 200))
+
+        expectEqual(draft.takeCommit(), 255, "last dragged width wins")
+        expectNil(draft.takeCommit())
+    }
+
+    TestRunner.add("SidebarWidthDraft cancel clears any pending commit") {
+        var draft = SidebarWidthDraft()
+
+        expect(draft.record(measuredWidth: 250, isCollapsed: false, currentStoredWidth: 200))
+        expectEqual(draft.hasPendingCommit, true)
+
+        draft.cancel()
+        expectEqual(draft.hasPendingCommit, false)
+        expectNil(draft.takeCommit())
+    }
+
+    // MARK: - Debouncer Timing and AppModel Integration
+
+    TestRunner.add("SidebarWidthDebouncer coalesces rapid events and commits after delay") {
+        var committed: [Double] = []
+        MainActor.assumeIsolated {
+            let debouncer = SidebarWidthDebouncer(delay: .milliseconds(40))
+
+            debouncer.handleWidthChange(
+                measuredWidth: 220,
+                isCollapsed: false,
+                currentStoredWidth: 200
+            ) { width in
+                committed.append(width)
+            }
+
+            // Rapid drag continued before delay expires
+            debouncer.handleWidthChange(
+                measuredWidth: 240,
+                isCollapsed: false,
+                currentStoredWidth: 200
+            ) { width in
+                committed.append(width)
+            }
+
+            debouncer.handleWidthChange(
+                measuredWidth: 250,
+                isCollapsed: false,
+                currentStoredWidth: 200
+            ) { width in
+                committed.append(width)
+            }
+        }
+
+        // Pump briefly: delay (40ms) has not elapsed yet. The commit runs as
+        // a MainActor task, so the run loop must be pumped outside the
+        // isolated block above for it to run at all.
+        let start = Date()
+        while Date().timeIntervalSince(start) < 0.015 {
+            _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.005))
+        }
+        expectEqual(committed.isEmpty, true, "no commit occurs before debounce interval elapses")
+
+        // Wait past the debounce delay
+        let deadline = Date().addingTimeInterval(1.0)
+        while Date() < deadline && committed.isEmpty {
+            _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
+
+        expectEqual(committed.count, 1, "exactly one commit occurs")
+        expectEqual(committed.first, 250, "the latest dragged width was committed")
+    }
+
+    TestRunner.add("SidebarWidthDebouncer cancels commit when sidebar collapses before delay") {
+        var committed: [Double] = []
+        MainActor.assumeIsolated {
+            let debouncer = SidebarWidthDebouncer(delay: .milliseconds(40))
+
+            debouncer.handleWidthChange(
+                measuredWidth: 260,
+                isCollapsed: false,
+                currentStoredWidth: 200
+            ) { width in
+                committed.append(width)
+            }
+
+            // User collapses the sidebar before debounce fires
+            debouncer.handleWidthChange(
+                measuredWidth: 0,
+                isCollapsed: true,
+                currentStoredWidth: 200
+            ) { width in
+                committed.append(width)
+            }
+        }
+
+        // The commit runs as a MainActor task, so the run loop must be pumped
+        // outside the isolated block above for it to run at all.
+        let deadline = Date().addingTimeInterval(0.3)
+        while Date() < deadline && committed.isEmpty {
+            _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
+
+        expectEqual(committed.isEmpty, true, "collapsing cancels pending commit")
+    }
+
+    TestRunner.add("SidebarWidthDebouncer commits new width to AppModel and persists in store") {
+        do {
+            let store = try ClipboardStore(inMemory: true)
+            var committed = false
+            var appModel: AppModel?
+            try MainActor.assumeIsolated {
+                let history = ClipboardHistory(store: store)
+                _ = try history.defaultTab()
+                let model = AppModel(history: history)
+                appModel = model
+                model.bootstrap()
+
+                expectEqual(model.preferences.sidebarWidth, 200)
+
+                let debouncer = SidebarWidthDebouncer(delay: .milliseconds(30))
+
+                debouncer.handleWidthChange(
+                    measuredWidth: 250,
+                    isCollapsed: false,
+                    currentStoredWidth: model.preferences.sidebarWidth
+                ) { newWidth in
+                    model.updatePreferences { $0.sidebarWidth = newWidth }
+                    committed = true
+                }
+            }
+
+            // The debounced commit runs as a MainActor task, which can only
+            // execute while the main actor is free, so the run loop has to be
+            // pumped outside the isolated block above.
+            let deadline = Date().addingTimeInterval(1.0)
+            while Date() < deadline && !committed {
+                _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
+            }
+
+            MainActor.assumeIsolated {
+                guard let model = appModel else {
+                    TestRunner.fail("the model was not created")
+                    return
+                }
+                expectEqual(committed, true, "the debounced commit fired")
+                expectEqual(model.preferences.sidebarWidth, 250, "model preferences updated with committed width")
+
+                do {
+                    let reloaded = try store.preferences()
+                    expectEqual(reloaded.sidebarWidth, 250, "store persisted the new sidebar width")
+                } catch {
+                    TestRunner.fail("threw \(error)")
+                }
+            }
+        } catch {
+            TestRunner.fail("threw \(error)")
+        }
+    }
+}

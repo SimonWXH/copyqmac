@@ -982,10 +982,15 @@ menu-bar item available.
   - **Layout A (Classic)**: A vertical stack composed of the top tab strip, filter bar,
     item list, 170pt bottom preview pane with the note editor, and status bar.
   - **Layout B (Sidebar + Inspector)**: A macOS-native arrangement using `NavigationSplitView`.
-    It features a 200pt left sidebar showing the tab list with per-tab counts, capture badge,
-    and drag-and-drop tab reordering. A fixed-position toggle in the navigation toolbar
-    replaces the automatic sidebar toggle: it is pinned right of the window title and stays
-    there whether the sidebar is open or closed (Control-Command-S). A 52pt unified toolbar
+    It features a left sidebar (default 200pt, adjustable 160...260pt) showing the tab list with
+    per-tab counts, capture badge, and drag-and-drop tab reordering. The sidebar column's width is
+    managed explicitly (the split view's own divider is inert); an 8pt drag handle on its trailing
+    edge (`NSCursor.resizeLeftRight` on hover) resizes it, and the width is debounced and persisted
+    as `sidebarWidth` (clamped to 160...260), so it is restored on relaunch. A fixed-position toggle
+    in the navigation toolbar
+    replaces the automatic sidebar toggle: it is pinned right of the window title, stays
+    there whether the sidebar is open or closed, and looks identical in both states
+    (Control-Command-S). A 52pt unified toolbar
     integrates the filter search field, scope picker (Current tab / All tabs), and inspector
     toggle button (Cmd-Opt-I); a center column displays the item list at full available
     height; and a 280pt trailing inspector. The inspector provides a top metadata

@@ -49,6 +49,7 @@ registerStatusItemNoticeTests()
 registerLocalizationTests()
 registerDesignTokensTests()
 registerWindowLayoutTests()
+registerSidebarWidthTests()
 registerTabContextMenuTests()
 registerBundleResourcesTests()
 
