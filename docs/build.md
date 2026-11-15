@@ -419,8 +419,19 @@ Tools. `tests/` contains a small assertion harness and the suites:
   list, so they stay correct while the visible list is capped; and the
   fixed-position sidebar toggle staying right of the title as the only sidebar
   toggle item in the toolbar, its frame unchanged through clicks that collapse
-  and re-expand the sidebar, and its Control-Command-S key equivalent routing
-  through a real window
+  and re-expand the sidebar, its Control-Command-S key equivalent routing
+  through a real window, and its render pixel-identical between the expanded
+  and collapsed states
+- sidebar width: the `SidebarLayout` clamp (160...260), the 200pt default in
+  `Preferences.defaultValue`, a missing decode key and an out-of-range stored
+  value both falling back to the clamped width, a store round trip and
+  sanitization preserving the width, and the debounced draft rules (collapsed
+  or sub-minimum measurements rejected, changes within 0.5pt of the stored
+  width ignored, out-of-range values clamped, only the latest dragged width
+  kept, a cancel clearing the pending commit, rapid drag events coalescing
+  into one commit after the delay that reaches `AppModel` and persists in the
+  store); a hosted Layout B window renders the stored width on first layout
+  and follows a committed width update
 - window layout switching: the default preference, a stored blob with no layout
   information, and a legacy blob carrying the pre-control layout field all resolving
   to Layout B while that legacy field is left unchanged on re-encode; a layout

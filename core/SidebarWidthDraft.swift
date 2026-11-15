@@ -4,9 +4,10 @@
 //
 // Debounced commit decision for the Layout B sidebar column width.
 //
-// The view reads column width via GeometryReader and debounces updates; this
-// file owns the decision of whether a measurement is valid, whether a write
-// is needed, and which width wins when dragging ceases.
+// The view reads the sidebar column's width from an explicit trailing-edge
+// drag handle and debounces the measurements; this file owns the decision of
+// whether a measurement is valid, whether a write is needed, and which width
+// wins when dragging ceases.
 
 import Foundation
 
