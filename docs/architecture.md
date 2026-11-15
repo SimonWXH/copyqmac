@@ -716,13 +716,14 @@ reaches the windows that are already open.
 `app/DesignTokens.swift` holds the values the interface draws with: semantic
 colours, the spacing scale, the radius hierarchy, and text styles, plus the
 `FontPreference.nsFont` and `chosenFont` resolution the [Fonts](#fonts) rules
-describe. It lives in `app/`, not `core/`, because resolving a colour or a font
-needs AppKit. The set is not an inventory of candidates: it holds the values
-call sites use, one entry per value, so a value only one surface draws may stay
-a literal until a second surface needs it, and an unused member is removed
-rather than kept for later. Typography covers text styles only, because the
-window chrome stays on system fonts; the item list and the editor text are the
-only user-configurable fonts.
+describe and the `HoverButtonStyle` the custom buttons apply as `.hover` for a
+single shared hover and pressed background. It lives in `app/`, not `core/`,
+because resolving a colour or a font needs AppKit. The set is not an inventory
+of candidates: it holds the values call sites use, one entry per value, so a
+value only one surface draws may stay a literal until a second surface needs
+it, and an unused member is removed rather than kept for later. Typography
+covers text styles only, because the window chrome stays on system fonts; the
+item list and the editor text are the only user-configurable fonts.
 
 ## Activation
 

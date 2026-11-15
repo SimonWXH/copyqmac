@@ -14,7 +14,7 @@ Verified on this machine:
 swift 6.3.3 (swiftlang-6.3.3.1.3), target arm64-apple-macosx26.0
 macOS SDK 26.5 at /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
 codesign, iconutil, sqlite3 (3.51.0, FTS5 with the trigram tokenizer)
-Liquid Glass APIs (.glassEffect, .buttonStyle(.glass))
+Liquid Glass surface API (.glassEffect)
 typecheck against this SDK
 ```
 

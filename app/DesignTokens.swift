@@ -1,4 +1,5 @@
-// Design tokens: semantic colours, spacing scale, radius hierarchy, and typography.
+// Design tokens: semantic colours, spacing scale, radius hierarchy, typography,
+// and the shared hover button style.
 
 import AppKit
 import SwiftUI
