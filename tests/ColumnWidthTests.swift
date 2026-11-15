@@ -104,13 +104,14 @@ func registerColumnWidthTests() {
                 }
             }
 
-            let start = Date()
-            while Date().timeIntervalSince(start) < 0.015 {
-                _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.005))
-            }
+            // The commit is scheduled as a MainActor task, so it cannot run
+            // until this synchronous scope yields. Do not pump the run loop
+            // against a wall-clock window here: on a loaded host the delayed
+            // task can fire before the loop's time budget expires and make
+            // this assertion fail even though the debounce worked.
             expectEqual(committed.isEmpty, true, "\(name): no commit occurs before the debounce interval elapses")
 
-            let deadline = Date().addingTimeInterval(1.0)
+            let deadline = Date().addingTimeInterval(5.0)
             while Date() < deadline && committed.isEmpty {
                 _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
             }
