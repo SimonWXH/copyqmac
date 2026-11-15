@@ -1530,7 +1530,7 @@ func registerCopyQSyncEditPropagationTests() {
             flavours: [Fixtures.text("alpha")]
         ))
         let writtenA = try CopyQSyncWriter.shared.writeEntry(entryA, in: storeA, reason: "capture")
-        let stemA = try unwrap(writtenA?.stem, "A wrote its capture")
+        _ = try unwrap(writtenA?.stem, "A wrote its capture")
         let entryB = try storeB.insert(ClipboardEntry(
             createdAt: baseDate.addingTimeInterval(60),
             tabID: tabB.id,

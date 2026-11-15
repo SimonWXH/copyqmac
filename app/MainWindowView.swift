@@ -226,6 +226,10 @@ struct LayoutBView: View {
     @State private var sidebarWidth: CGFloat?
     @State private var sidebarDragBase: CGFloat?
     @State private var sidebarDebouncer = SidebarWidthDebouncer()
+    @State private var inspectorWidth: CGFloat?
+    @State private var inspectorDragBase: CGFloat?
+    @State private var inspectorDebouncer = InspectorWidthDebouncer()
+    @State private var containerWidth: CGFloat = 0
 
     private var selectedEntry: ClipboardEntry? {
         guard let id = model.selection.selectedEntryID else { return nil }
@@ -237,6 +241,19 @@ struct LayoutBView: View {
     /// the persisted width is restored on the first render after a relaunch.
     private var currentSidebarWidth: CGFloat {
         CGFloat(sidebarWidth ?? model.preferences.sidebarWidth)
+    }
+
+    /// The inspector column width the view currently renders. The stored width
+    /// is the source of truth until the user drags the column's own edge, so
+    /// the persisted width is restored on the first render after a relaunch.
+    /// Clamped against containerWidth if available to guarantee the center item
+    /// list always has at least 320 pt.
+    private var currentInspectorWidth: CGFloat {
+        let preferred = CGFloat(inspectorWidth ?? model.preferences.inspectorColumnWidth)
+        if containerWidth > 0 {
+            return CGFloat(InspectorColumnLayout.clampWidth(Double(preferred), containerWidth: containerWidth))
+        }
+        return CGFloat(InspectorColumnLayout.clampWidth(Double(preferred)))
     }
 
     var body: some View {
@@ -344,13 +361,13 @@ struct LayoutBView: View {
 
                 // Center column + trailing inspector
                 HStack(spacing: 0) {
-                    ItemListView(model: model, onDismiss: onDismiss)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    ItemListView(model: model, maxTextLines: 3, onDismiss: onDismiss)
+                        .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity)
 
                     if isInspectorVisible {
                         Divider().opacity(0.35)
 
-                        // Trailing inspector 280pt
+                        // Trailing inspector
                         VStack(spacing: 0) {
                             InspectorMetadataBlock(
                                 entry: selectedEntry,
@@ -402,10 +419,31 @@ struct LayoutBView: View {
                                 }
                             }
                         }
-                        .frame(width: 280)
+                        .frame(width: currentInspectorWidth)
+                        .overlay(alignment: .leading) {
+                            InspectorResizeHandle(
+                                width: $inspectorWidth,
+                                dragBase: $inspectorDragBase,
+                                storedWidth: model.preferences.inspectorColumnWidth,
+                                isVisible: isInspectorVisible,
+                                containerWidth: containerWidth,
+                                debouncer: inspectorDebouncer
+                            ) { newWidth in
+                                model.updatePreferences { $0.inspectorColumnWidth = newWidth }
+                            }
+                        }
                         .background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
                     }
                 }
+                .background(
+                    GeometryReader { geo in
+                        Color.clear
+                            .onAppear { containerWidth = geo.size.width }
+                            .onChange(of: geo.size.width) { _, newWidth in
+                                containerWidth = newWidth
+                            }
+                    }
+                )
 
                 Divider().opacity(0.35)
                 StatusBarView(model: model)
@@ -422,6 +460,11 @@ struct LayoutBView: View {
         }
         .onChange(of: model.focusNoteToken) { _, _ in noteFocused = true }
         .onChange(of: model.noteBlurToken) { _, _ in noteFocused = false }
+        .onChange(of: isInspectorVisible) { _, visible in
+            if !visible {
+                inspectorDebouncer.cancel()
+            }
+        }
         .onChange(of: columnVisibility) { _, newVisibility in
             if newVisibility == .detailOnly {
                 sidebarDebouncer.cancel()
@@ -429,6 +472,7 @@ struct LayoutBView: View {
         }
         .onDisappear {
             sidebarDebouncer.cancel()
+            inspectorDebouncer.cancel()
         }
     }
 }
@@ -480,6 +524,58 @@ private struct SidebarResizeHandle: View {
                     .onEnded { _ in dragBase = nil }
             )
             .accessibilityLabel(Text("Resize Sidebar"))
+    }
+}
+
+// MARK: - Inspector Resize Handle
+
+/// A drag handle pinned to the inspector column's leading edge.
+///
+/// Dragging updates the rendered width immediately, clamped to the allowed
+/// range (240...560 pt) and the available container width (preserving at least
+/// 320 pt for the item list), and funnels each measurement through the shared
+/// debouncer, which commits the width to preferences once the drag settles.
+private struct InspectorResizeHandle: View {
+    @Binding var width: CGFloat?
+    @Binding var dragBase: CGFloat?
+    let storedWidth: Double
+    let isVisible: Bool
+    let containerWidth: CGFloat
+    let debouncer: InspectorWidthDebouncer
+    let onCommit: @MainActor (Double) -> Void
+
+    var body: some View {
+        Color.clear
+            .frame(width: 8)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                if hovering {
+                    NSCursor.resizeLeftRight.set()
+                } else {
+                    NSCursor.arrow.set()
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        let base = dragBase ?? width ?? CGFloat(storedWidth)
+                        dragBase = base
+                        let proposed = InspectorColumnLayout.width(
+                            baseWidth: Double(base),
+                            translationX: value.translation.width,
+                            containerWidth: containerWidth
+                        )
+                        width = CGFloat(proposed)
+                        debouncer.handleWidthChange(
+                            measuredWidth: proposed,
+                            isVisible: isVisible,
+                            currentStoredWidth: storedWidth,
+                            onCommit: onCommit
+                        )
+                    }
+                    .onEnded { _ in dragBase = nil }
+            )
+            .accessibilityLabel(Text("Resize Inspector"))
     }
 }
 
@@ -1134,6 +1230,7 @@ private struct FilterBarView: View {
 
 private struct ItemListView: View {
     @ObservedObject var model: AppModel
+    var maxTextLines: Int = 2
     let onDismiss: () -> Void
 
     var body: some View {
@@ -1187,6 +1284,7 @@ private struct ItemListView: View {
                     font: model.preferences.itemListFont.nsFont,
                     singleClickActivates: model.preferences.activation.singleClickActivates,
                     language: lang,
+                    maxTextLines: maxTextLines,
                     actions: EntryRowActions(
                         togglePin: { id in
                             guard let entry = model.entry(id: id) else { return }

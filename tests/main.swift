@@ -50,6 +50,8 @@ registerLocalizationTests()
 registerDesignTokensTests()
 registerWindowLayoutTests()
 registerSidebarWidthTests()
+registerInspectorWidthTests()
+registerItemTextWrappingTests()
 registerTabContextMenuTests()
 registerBundleResourcesTests()
 

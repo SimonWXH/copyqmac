@@ -163,6 +163,8 @@ private struct EntryRowContent: View {
     /// The font the item text draws in, from the History ▸ Fonts preference.
     /// Nil keeps the row's default body font.
     let font: NSFont?
+    /// Maximum lines for primary text wrapping before truncating with an ellipsis.
+    var maxTextLines: Int = 2
 
     @State private var isHovering = false
 
@@ -183,9 +185,11 @@ private struct EntryRowContent: View {
                     Text(row.relativeTime)
                         .font(DesignTokens.Typography.caption2)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                     Text(kindLabel)
                         .font(DesignTokens.Typography.caption2)
                         .foregroundStyle(.tertiary)
+                        .lineLimit(1)
                     if row.hasNote {
                         Label(
                             Localization.string(.rowNoteBadge, language: language),
@@ -193,8 +197,10 @@ private struct EntryRowContent: View {
                         )
                             .font(DesignTokens.Typography.caption2)
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
                 }
+                .lineLimit(1)
             }
             Spacer(minLength: DesignTokens.Spacing.xSmall)
 
@@ -284,15 +290,16 @@ private struct EntryRowContent: View {
             } else if kind == .html || kind == .rtf, let richText = row.richText {
                 // The stored HTML/RTF, drawn with its fonts and colours. The
                 // compact rendition keeps headings inside the fixed row height,
-                // and the line limit clips anything longer than two lines.
+                // and the line limit clips anything longer than maxTextLines.
                 Text(richText)
-                    .lineLimit(2)
+                    .lineLimit(maxTextLines)
                     .truncationMode(.tail)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             } else if let text = row.primaryText, !text.isEmpty {
                 Text(text)
-                    .lineLimit(2)
+                    .lineLimit(maxTextLines)
+                    .truncationMode(.tail)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
@@ -338,6 +345,8 @@ struct EntryListView: NSViewRepresentable {
     let singleClickActivates: Bool
     /// The interface language, used by the row help and the context menu.
     var language: AppLanguage = .english
+    /// Maximum lines for primary text wrapping.
+    var maxTextLines: Int = 2
     let actions: EntryRowActions
     let contextActions: EntryContextActions
     /// Reports the complete selection the user made with the mouse. The focus
@@ -434,6 +443,7 @@ struct EntryListView: NSViewRepresentable {
         /// The font the realized cells were configured with, so a preference
         /// change reaches rows that are already on screen.
         private var appliedFont: NSFont?
+        private var appliedMaxTextLines: Int?
         private var cancellables: [Any] = []
         /// Set while a deferred re-measure of the visible rows is pending.
         private var isRemeasureScheduled = false
@@ -507,6 +517,8 @@ struct EntryListView: NSViewRepresentable {
             appliedLanguage = parent.language
             let fontChanged = appliedFont != parent.font
             appliedFont = parent.font
+            let maxTextLinesChanged = appliedMaxTextLines != parent.maxTextLines
+            appliedMaxTextLines = parent.maxTextLines
             if newIDs == rowIDs {
                 var needsRefresh = false
                 if parent.rowsRevision != appliedRowsRevision {
@@ -516,7 +528,7 @@ struct EntryListView: NSViewRepresentable {
                     invalidateRowHeights(changed, in: tableView)
                     needsRefresh = true
                 }
-                if fontChanged {
+                if fontChanged || maxTextLinesChanged {
                     invalidateRowHeights(IndexSet(integersIn: 0..<tableView.numberOfRows), in: tableView)
                     needsRefresh = true
                 }
@@ -566,7 +578,8 @@ struct EntryListView: NSViewRepresentable {
                     actions: parent.actions,
                     language: parent.language,
                     width: width,
-                    font: parent.font
+                    font: parent.font,
+                    maxTextLines: parent.maxTextLines
                 )
             }
         }
@@ -707,7 +720,8 @@ struct EntryListView: NSViewRepresentable {
                 actions: parent.actions,
                 language: parent.language,
                 width: Self.contentWidth(in: tableView),
-                font: parent.font
+                font: parent.font,
+                maxTextLines: parent.maxTextLines
             )
             return cell
         }
@@ -977,14 +991,16 @@ private final class EntryCellView: NSTableCellView {
         actions: EntryRowActions,
         language: AppLanguage,
         width: CGFloat,
-        font: NSFont?
+        font: NSFont?,
+        maxTextLines: Int = 2
     ) {
         hosting.rootView = EntryRowContent(
             row: row,
             actions: actions,
             language: language,
             width: width,
-            font: font
+            font: font,
+            maxTextLines: maxTextLines
         )
     }
 

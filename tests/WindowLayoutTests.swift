@@ -1022,6 +1022,70 @@ func registerWindowLayoutTests() {
         }
     }
 
+    TestRunner.add("Layout B renders the inspector column at the stored width on first layout") {
+        MainActor.assumeIsolated {
+            do {
+                for stored in [240.0, 280.0, 360.0, 480.0] {
+                    let harness = try LayoutBWindowHarness(
+                        root: .layoutB,
+                        size: NSSize(width: 1200, height: 600),
+                        inspectorColumnWidth: stored
+                    )
+                    defer { harness.close() }
+                    harness.settle(0.4)
+
+                    guard let rendered = harness.renderedInspectorWidth else {
+                        TestRunner.fail("could not measure the rendered inspector width for stored \(stored)")
+                        return
+                    }
+                    expectEqual(
+                        rendered, CGFloat(stored), accuracy: 1.0,
+                        "the rendered inspector column starts at the stored width \(stored) (got \(rendered))"
+                    )
+                }
+            } catch {
+                TestRunner.fail("threw \(error)")
+            }
+        }
+    }
+
+    TestRunner.add("Layout B inspector column follows a committed width preference update") {
+        MainActor.assumeIsolated {
+            do {
+                let harness = try LayoutBWindowHarness(
+                    root: .layoutB,
+                    size: NSSize(width: 1200, height: 600),
+                    inspectorColumnWidth: 280
+                )
+                defer { harness.close() }
+                harness.settle(0.4)
+
+                guard let initial = harness.renderedInspectorWidth else {
+                    TestRunner.fail("could not measure the rendered inspector width")
+                    return
+                }
+                expectEqual(initial, 280, accuracy: 1.0, "the inspector column starts at the stored width")
+
+                harness.model.updatePreferences { $0.inspectorColumnWidth = 360 }
+                harness.settle(0.4)
+
+                guard let updated = harness.renderedInspectorWidth else {
+                    TestRunner.fail("could not measure the rendered inspector width after the update")
+                    return
+                }
+                expectEqual(
+                    updated, 360, accuracy: 1.0,
+                    "the rendered inspector column follows the stored width after a commit"
+                )
+
+                let reloaded = harness.model.preferences
+                expectEqual(reloaded.inspectorColumnWidth, 360, "the model preferences keep the committed inspector width")
+            } catch {
+                TestRunner.fail("threw \(error)")
+            }
+        }
+    }
+
     TestRunner.add("sidebar toggle button Control-Command-S shortcut toggles the sidebar") {
         MainActor.assumeIsolated {
             let harness = SidebarToggleHarness()
@@ -1225,7 +1289,8 @@ private final class LayoutBWindowHarness {
         inspectorSplitRatio: Double = 0.55,
         root: Root = .mainWindow,
         size: NSSize = NSSize(width: 900, height: 460),
-        sidebarWidth: Double = SidebarLayout.defaultWidth
+        sidebarWidth: Double = SidebarLayout.defaultWidth,
+        inspectorColumnWidth: Double = InspectorColumnLayout.defaultWidth
     ) throws {
         _ = NSApplication.shared
         let store = try ClipboardStore(inMemory: true)
@@ -1233,6 +1298,7 @@ private final class LayoutBWindowHarness {
         preferences.windowLayout = .layoutB
         preferences.inspectorSplitRatio = inspectorSplitRatio
         preferences.sidebarWidth = sidebarWidth
+        preferences.inspectorColumnWidth = inspectorColumnWidth
         try store.setPreferences(preferences)
         let history = ClipboardHistory(store: store)
         secondTab = try history.addTab(name: "Later")
@@ -1344,6 +1410,12 @@ private final class LayoutBWindowHarness {
         }
         guard let inset = firstInsetX(pane) else { return pane.frame.width }
         return pane.frame.width - inset
+    }
+
+    /// The rendered width of the Layout B inspector column, measured via the
+    /// horizontal split divider which spans the full width of the inspector pane.
+    var renderedInspectorWidth: CGFloat? {
+        divider?.frame.width
     }
 
     /// `NSSplitView.isSubviewCollapsed` stays false until the collapse animation

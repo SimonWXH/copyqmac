@@ -993,7 +993,12 @@ menu-bar item available.
     (Control-Command-S). A 52pt unified toolbar
     integrates the filter search field, scope picker (Current tab / All tabs), and inspector
     toggle button (Cmd-Opt-I); a center column displays the item list at full available
-    height; and a 280pt trailing inspector. The inspector provides a top metadata
+    height with responsive primary text wrapping up to 3 lines (min 320pt width guard);
+    and an adjustable trailing inspector (default 280pt, range 240...560pt). An 8pt drag
+    handle on the inspector column's leading edge (`NSCursor.resizeLeftRight` on hover)
+    resizes it with debounced persistence as `inspectorColumnWidth` (clamped to 240...560pt
+    and constrained so the center item list retains at least 320pt), restoring the chosen
+    width on relaunch. The inspector provides a top metadata
     block (flavour tag, line count, byte size, timestamp) and preview/note panes sharing the
     remaining height across a 7pt horizontal drag divider (grip line 22x2pt,
     `NSCursor.resizeUpDown` on hover and during drag, 60pt minimum height per pane,

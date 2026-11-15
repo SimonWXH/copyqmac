@@ -104,14 +104,14 @@ final class PasteService {
     /// Why a plain-text paste cannot run for an entry with no text. Shared with
     /// the model, which reports the same reason when menu validation (and the
     /// action) reject an entry.
-    static let noPlainTextMessage = "This entry has no text to paste as plain text."
+    nonisolated static let noPlainTextMessage = "This entry has no text to paste as plain text."
 
     /// Why the global plain-text shortcut cannot run when the clipboard itself
     /// carries no text (for example after copying an image).
-    static let noClipboardTextMessage = "The clipboard has no text to paste as plain text."
+    nonisolated static let noClipboardTextMessage = "The clipboard has no text to paste as plain text."
 
     /// Why activation could not bring the previous app to the front.
-    static let focusFailedMessage = "Could not focus the previous app."
+    nonisolated static let focusFailedMessage = "Could not focus the previous app."
 
     /// Whether there is another app to paste into or bring to the front.
     ///
