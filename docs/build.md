@@ -317,6 +317,11 @@ Tools. `tests/` contains a small assertion harness and the suites:
   inspector reads from a cached presentation (counted with the background
   full-text read and carried through the cache), and a guard that the render path
   never computes a fingerprint
+- item text wrapping: Layout B's primary text wrapping to a 3-line cap while
+  Layout A keeps 2 lines, row heights growing with each extra wrapped line and
+  returning to the compact height when the column widens again, the same height
+  in light and dark appearance, and single-line secondary metadata keeping a row
+  compact in a narrow column
 - display and interaction rules that have to hold outside the GUI: file entries
   showing the file name (and being reindexed by name on upgrade), the
   Accessibility prompt policy (asked on the first untrusted attempt, never while
@@ -422,16 +427,23 @@ Tools. `tests/` contains a small assertion harness and the suites:
   and re-expand the sidebar, its Control-Command-S key equivalent routing
   through a real window, and its render pixel-identical between the expanded
   and collapsed states
-- sidebar width: the `SidebarLayout` clamp (160...260), the 200pt default in
-  `Preferences.defaultValue`, a missing decode key and an out-of-range stored
-  value both falling back to the clamped width, a store round trip and
-  sanitization preserving the width, and the debounced draft rules (collapsed
-  or sub-minimum measurements rejected, changes within 0.5pt of the stored
-  width ignored, out-of-range values clamped, only the latest dragged width
-  kept, a cancel clearing the pending commit, rapid drag events coalescing
-  into one commit after the delay that reaches `AppModel` and persists in the
-  store); a hosted Layout B window renders the stored width on first layout
-  and follows a committed width update
+- column widths: the shared `ColumnWidthDraft`/`ColumnWidthDebouncer` rules
+  exercised against both Layout B columns (a hidden or sub-minimum measurement
+  rejected, a change within 0.5pt of the stored width ignored, a repeated or
+  sub-pixel final frame at a clamp keeping the scheduled commit, out-of-range
+  values clamped, only the latest dragged width kept, a cancel clearing the
+  pending commit, rapid drag events coalescing into one commit after the delay
+  that reaches `AppModel` and persists in the store); the `SidebarLayout` clamp
+  (160...260) and the `InspectorColumnLayout` clamp (240...560, further capped to
+  leave the item list 320pt whenever the container allows it and to hold the
+  240pt minimum below that, with a left drag widening the inspector and a right
+  drag narrowing it, and a drag starting from a container-clamped rendered width
+  moving on the first pixel), each default in `Preferences.defaultValue`, a missing
+  decode key and an out-of-range stored value both falling back to the clamped
+  width, and a store round trip and sanitization preserving the width; a hosted
+  Layout B window renders the stored width on first layout, follows a committed
+  width update, and keeps the inspector at its 240pt minimum when the window is
+  narrower than the two minimums together
 - window layout switching: the default preference, a stored blob with no layout
   information, and a legacy blob carrying the pre-control layout field all resolving
   to Layout B while that legacy field is left unchanged on re-encode; a layout
