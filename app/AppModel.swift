@@ -323,6 +323,7 @@ final class AppModel: ObservableObject {
     /// hotkey.
     var onPreferencesChanged: ((Preferences) -> Void)?
     var onResyncTabRequest: ((Int64) -> Void)?
+    var onWriteBackTabRequest: ((Int64) -> Void)?
     /// The last app seen as frontmost. Preferences uses it to offer "add the app
     /// I just copied from" without depending on AppKit itself.
     var sourceApplicationProvider: (@MainActor () -> SourceApplication?)?
@@ -2064,6 +2065,24 @@ final class AppModel: ObservableObject {
 
     func requestResyncTab(_ tabID: Int64) {
         onResyncTabRequest?(tabID)
+    }
+
+    /// The tab context menu's write-back command, which needs no menu-item
+    /// sender to carry the tab id.
+    func requestWriteBackTab(_ tabID: Int64) {
+        onWriteBackTabRequest?(tabID)
+    }
+
+    @discardableResult
+    func applyWriteBack(_ plan: CopyQSyncRestorePlan) throws -> CopyQSyncRestoreResult {
+        // The rows themselves never change: the write only adds files and the
+        // stems each row now owns, so the history the list shows stays as it
+        // was.
+        try CopyQSyncRestore.apply(
+            plan,
+            in: history.store,
+            writer: syncWriter
+        )
     }
 
     @discardableResult

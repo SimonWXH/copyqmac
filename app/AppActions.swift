@@ -272,6 +272,95 @@ final class AppActions: NSObject, NSMenuItemValidation {
         }
     }
 
+    // MARK: - Write local items back to a sync folder
+
+    /// Entry point for the tab strip context menu: writes the tab's local
+    /// entries back into its sync folder after an explicit confirmation whose
+    /// counts come from the plan.  The plan reads the folder and the store off
+    /// the main thread, so a large folder never freezes the window.
+    func writeBackTab(id: Int64) {
+        guard model.tab(id: id) != nil else {
+            model.reportFailure("That tab no longer exists.")
+            return
+        }
+        let store = model.history.store
+        let language = model.preferences.language
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let outcome = Result {
+                try CopyQSyncRestore.plan(tabID: id, in: store)
+            }
+            await MainActor.run { [weak self] in
+                self?.presentWriteBack(outcome, language: language)
+            }
+        }
+    }
+
+    private func presentWriteBack(
+        _ outcome: Result<CopyQSyncRestorePlan, Error>,
+        language: AppLanguage
+    ) {
+        do {
+            presentWriteBackConfirmation(try outcome.get(), language: language)
+        } catch {
+            model.reportFailure(
+                "Could not write the tab's items back to its sync folder: \(error.localizedDescription)"
+            )
+        }
+    }
+
+    /// The explicit write confirmation.  It states, with counts, how many
+    /// entries are written, how many files are created and rewritten, and which
+    /// entries are skipped with the reason for each.  Cancel is the default
+    /// button, so Return never writes.
+    private func presentWriteBackConfirmation(
+        _ plan: CopyQSyncRestorePlan,
+        language: AppLanguage
+    ) {
+        let alert = NSAlert()
+        alert.messageText = Localization.format(
+            .dialogWriteBackTitle,
+            language: language,
+            plan.tabName
+        )
+        alert.alertStyle = plan.isEmpty ? .informational : .warning
+
+        var detailLines = [
+            Localization.string(.dialogWriteBackIntro, language: language),
+            "",
+            plan.confirmation(language: language),
+            "",
+        ]
+        let paused = model.preferences.syncPaused
+        if paused {
+            detailLines.append(Localization.string(.dialogWriteBackPausedNote, language: language))
+            detailLines.append("")
+        }
+        detailLines.append(
+            Localization.format(.dialogResyncApplyFolder, language: language, plan.folder)
+        )
+        detailLines.append("")
+        detailLines.append(Localization.string(.dialogWriteBackFooter, language: language))
+        alert.informativeText = detailLines.joined(separator: "\n")
+
+        // The first button is the default, so Return never writes.
+        alert.addButton(withTitle: Localization.string(.buttonCancel, language: language))
+        let canWrite = !plan.isEmpty && !paused
+        if canWrite {
+            alert.addButton(withTitle: Localization.string(.buttonWriteBack, language: language))
+        }
+        guard canWrite, alertPresenter(alert) == .alertSecondButtonReturn else { return }
+
+        do {
+            let result = try model.applyWriteBack(plan)
+            windowController?.show()
+            model.showNotice([result.summary(language: language)] + Array(result.failures.prefix(3)))
+        } catch {
+            model.reportFailure(
+                "Could not write the tab's items back to its sync folder: \(error.localizedDescription)"
+            )
+        }
+    }
+
     @objc func reconcileSyncFolders(_ sender: Any?) {
         do {
             let report = try model.syncReconciliationReport()

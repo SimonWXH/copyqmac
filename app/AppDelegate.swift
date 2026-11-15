@@ -141,6 +141,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.onResyncTabRequest = { [weak self] tabID in
             self?.actions.resyncTab(id: tabID)
         }
+        model.onWriteBackTabRequest = { [weak self] tabID in
+            self?.actions.writeBackTab(id: tabID)
+        }
 
         // Granting Accessibility happens in System Settings, so re-read the
         // permission state whenever the user comes back to the app: the banner

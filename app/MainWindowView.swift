@@ -469,6 +469,7 @@ enum TabContextMenu {
         let moveForward: String
         let useAsCaptureTab: String
         let compareSyncFolder: String
+        let writeBackToSyncFolder: String
         let removeTab: String
     }
 
@@ -489,6 +490,7 @@ enum TabContextMenu {
             moveForward: Localization.string(moveForwardKey, language: language),
             useAsCaptureTab: Localization.string(.menuTabsUseAsCaptureTab, language: language),
             compareSyncFolder: Localization.string(.tabContextCompareSyncFolder, language: language),
+            writeBackToSyncFolder: Localization.string(.tabContextWriteBack, language: language),
             removeTab: Localization.string(.menuTabsRemoveTab, language: language)
         )
     }
@@ -572,6 +574,10 @@ private struct SidebarTabRow: View {
             Divider()
             Button(titles.compareSyncFolder) {
                 model.requestResyncTab(tab.id)
+            }
+            .disabled((tab.syncFolder ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button(titles.writeBackToSyncFolder) {
+                model.requestWriteBackTab(tab.id)
             }
             .disabled((tab.syncFolder ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             Divider()
@@ -981,6 +987,10 @@ private struct TabChip: View {
             Divider()
             Button(titles.compareSyncFolder) {
                 model.requestResyncTab(tab.id)
+            }
+            .disabled((tab.syncFolder ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button(titles.writeBackToSyncFolder) {
+                model.requestWriteBackTab(tab.id)
             }
             .disabled((tab.syncFolder ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             Divider()

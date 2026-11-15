@@ -430,7 +430,9 @@ public final class CopyQSyncWriter: @unchecked Sendable {
     /// A missing or unreadable folder never fails the edit: the failure is
     /// written to the sync log and returned, and the local row keeps the new
     /// content. When the entry owns several groups, the rewrite keeps one stem
-    /// and moves the extra groups to the app trash.
+    /// and moves the extra groups to the app trash; a caller that must take
+    /// nothing out of the folder passes `convergeSupersededGroups: false` and
+    /// leaves every other group where it is.
     @discardableResult
     public func updateEntry(
         _ entry: ClipboardEntry,
@@ -438,6 +440,7 @@ public final class CopyQSyncWriter: @unchecked Sendable {
         reason: String = "edit",
         stem preferredStem: String? = nil,
         trashRoot: URL? = nil,
+        convergeSupersededGroups: Bool = true,
         fileManager: FileManager = .default
     ) -> SyncLogEntry? {
         updateLock.lock()
@@ -563,14 +566,16 @@ public final class CopyQSyncWriter: @unchecked Sendable {
         if let baseName = CopyQSyncDeletion.baseName(of: current), baseName != stem {
             try? store.replaceSyncBaseName(id: current.id, with: stem)
         }
-        convergeSupersededStems(
-            ownedStems.filter { $0 != stem },
-            folder: normalizedFolder,
-            tab: tab,
-            store: store,
-            trashRoot: trashRoot,
-            fileManager: fileManager
-        )
+        if convergeSupersededGroups {
+            convergeSupersededStems(
+                ownedStems.filter { $0 != stem },
+                folder: normalizedFolder,
+                tab: tab,
+                store: store,
+                trashRoot: trashRoot,
+                fileManager: fileManager
+            )
+        }
 
         let log = SyncLogEntry(
             stem: stem,

@@ -180,6 +180,8 @@ public struct CopyQSyncResyncReport: Equatable, Sendable {
     }
 }
 
+/// The conditions one tab's sync folder can be in when an operation that
+/// compares with it, resyncs it, or writes back into it has to stop.
 public enum CopyQSyncResyncError: LocalizedError, Equatable {
     case tabNotFound(Int64)
     case noSyncFolder(String)
@@ -188,6 +190,9 @@ public enum CopyQSyncResyncError: LocalizedError, Equatable {
     case folderUnreadable(String, String)
     case folderChanged(String, String)
     case syncPaused(String)
+    /// Paused sync blocks the folder write-back, which is a different
+    /// operation from resync and says so.
+    case writeBackPaused(String)
 
     public var errorDescription: String? {
         switch self {
@@ -205,6 +210,8 @@ public enum CopyQSyncResyncError: LocalizedError, Equatable {
             return "The tab's sync folder changed from \(planned) to \(current) after the report. Compare the tab again before applying."
         case .syncPaused(let tabName):
             return "Sync is paused, so “\(tabName)” cannot be resynced. Resume sync first."
+        case .writeBackPaused(let tabName):
+            return "Sync is paused, so “\(tabName)” cannot be written back. Resume sync first."
         }
     }
 }
