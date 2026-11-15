@@ -119,6 +119,20 @@ enum CopyQSyncRestoreReport {
     /// How many per-entry skip lines are listed before the rest is summarised.
     static let listedSkipLimit = 12
 
+    /// The stem a folder file belongs to: the plain item stem, or the stem of a
+    /// staging or backup leftover after one `.tmp` or `.bak` suffix is
+    /// stripped. Dotfiles and sync-temp names belong to no stem.
+    static func stem(ofFolderFileName name: String) -> String? {
+        if let stem = CopyQSyncWatcher.itemStem(ofFileName: name) {
+            return stem
+        }
+        guard !name.hasPrefix("."), !name.contains(".syncthing.") else { return nil }
+        for suffix in [".tmp", ".bak"] where name.hasSuffix(suffix) {
+            return CopyQSyncWatcher.itemStem(ofFileName: String(name.dropLast(suffix.count)))
+        }
+        return nil
+    }
+
     static func skipLines(
         _ skips: [CopyQSyncRestoreSkip],
         language: AppLanguage
@@ -147,7 +161,7 @@ enum CopyQSyncRestoreReport {
     static func keptLines(_ files: [String], language: AppLanguage) -> [String] {
         var byStem: [String: [String]] = [:]
         for file in files {
-            let stem = CopyQSyncWatcher.itemStem(ofFileName: file) ?? file
+            let stem = stem(ofFolderFileName: file) ?? file
             byStem[stem, default: []].append(file)
         }
         return byStem.keys.sorted().map { stem in
@@ -484,7 +498,7 @@ public enum CopyQSyncRestore {
 
             let produced = item.onDiskFiles().keys.map { stem + $0 }.sorted()
             let existing = Set(fileNames.filter {
-                CopyQSyncWatcher.itemStem(ofFileName: $0) == stem
+                CopyQSyncRestoreReport.stem(ofFolderFileName: $0) == stem
             })
             rows.append(CopyQSyncRestoreRow(
                 entryID: entry.id,
@@ -590,7 +604,7 @@ public enum CopyQSyncRestore {
                 let writtenStem = log.stem ?? row.stem
                 let writtenNames = Set(log.files.map(\.path))
                 result.filesKept.append(contentsOf: existing.filter { name in
-                    CopyQSyncWatcher.itemStem(ofFileName: name) == writtenStem
+                    CopyQSyncRestoreReport.stem(ofFolderFileName: name) == writtenStem
                         && !writtenNames.contains(name)
                 }.sorted())
                 result.entriesWritten += 1

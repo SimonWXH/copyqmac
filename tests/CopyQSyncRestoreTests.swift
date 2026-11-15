@@ -495,6 +495,18 @@ func registerCopyQSyncRestoreTests() {
 
             let plan = try CopyQSyncRestore.plan(tabID: tab.id, in: store)
             expectEqual(plan.entryCount, 1, "the row is still written")
+            expectEqual(plan.rows.first?.filesKept, leftovers, "the plan names both leftovers as kept")
+            let english = plan.confirmation(language: .english)
+            expect(
+                english.contains("Left in place: 2 files are already in the folder"),
+                "the confirmation states the kept leftovers: \(english)"
+            )
+            for name in leftovers {
+                expect(
+                    english.contains(name),
+                    "the confirmation lists the kept leftover \(name): \(english)"
+                )
+            }
 
             let result = try CopyQSyncRestore.apply(
                 plan,
@@ -502,6 +514,11 @@ func registerCopyQSyncRestoreTests() {
                 writer: makeWriter(in: paths.root)
             )
             expectEqual(result.entriesWritten, 1, "the row is written")
+            expectEqual(result.filesKept, leftovers, "the result names both leftovers as kept")
+            expect(
+                result.summary(language: .english).contains("left 2 existing files in place"),
+                "the summary reports the kept leftovers: \(result.summary(language: .english))"
+            )
             expectEqual(
                 try Data(contentsOf: paths.sync.appendingPathComponent(stem + ".txt")),
                 Data("local version".utf8),
