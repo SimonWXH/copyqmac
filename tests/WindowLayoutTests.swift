@@ -1086,6 +1086,36 @@ func registerWindowLayoutTests() {
         }
     }
 
+    TestRunner.add("Layout B narrow window keeps the inspector minimum and lets the item list take the remainder") {
+        MainActor.assumeIsolated {
+            do {
+                let requested = NSSize(width: 700, height: 600)
+                let harness = try LayoutBWindowHarness(
+                    root: .layoutB,
+                    size: requested,
+                    inspectorColumnWidth: 560
+                )
+                defer { harness.close() }
+                harness.settle(0.5)
+
+                guard let inspector = harness.renderedInspectorWidth else {
+                    TestRunner.fail("could not measure the rendered inspector width")
+                    return
+                }
+                expectEqual(
+                    inspector, 240, accuracy: 1.0,
+                    "a container narrower than 560 pt keeps the inspector at its 240 pt minimum"
+                )
+                expectEqual(
+                    harness.window.frame.width, requested.width, accuracy: 1.0,
+                    "the window stays at the requested narrow width instead of growing for the item list"
+                )
+            } catch {
+                TestRunner.fail("threw \(error)")
+            }
+        }
+    }
+
     TestRunner.add("sidebar toggle button Control-Command-S shortcut toggles the sidebar") {
         MainActor.assumeIsolated {
             let harness = SidebarToggleHarness()

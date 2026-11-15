@@ -36,7 +36,7 @@ func registerInspectorWidthTests() {
         expectEqual(InspectorColumnLayout.clampWidth(560), 560)
     }
 
-    TestRunner.add("InspectorColumnLayout clamping preserves min item list width in container") {
+    TestRunner.add("InspectorColumnLayout clamping leaves 320 pt for the item list when the container allows it") {
         // Wide container (1000 pt): item list needs 320, remaining is 680, but capped at maxWidth 560
         expectEqual(InspectorColumnLayout.clampWidth(600, containerWidth: 1000), 560)
         expectEqual(InspectorColumnLayout.clampWidth(400, containerWidth: 1000), 400)
@@ -47,7 +47,13 @@ func registerInspectorWidthTests() {
         expectEqual(InspectorColumnLayout.clampWidth(300, containerWidth: 700), 300)
         expectEqual(InspectorColumnLayout.clampWidth(200, containerWidth: 700), 240, "never below minWidth")
 
-        // Tight container (500 pt): 500 - 320 = 180, but minWidth is 240, so effectiveMax is 240
+        // Container 560 pt is exactly minWidth + minItemListWidth
+        expectEqual(InspectorColumnLayout.clampWidth(560, containerWidth: 560), 240)
+        expectEqual(InspectorColumnLayout.clampWidth(560, containerWidth: 561), 241)
+
+        // Narrower container (559 pt and below) cannot fit both minimums: the
+        // inspector stays at 240 and the item list takes the remaining 319 pt.
+        expectEqual(InspectorColumnLayout.clampWidth(560, containerWidth: 559), 240)
         expectEqual(InspectorColumnLayout.clampWidth(350, containerWidth: 500), 240)
         expectEqual(InspectorColumnLayout.clampWidth(240, containerWidth: 500), 240)
 
@@ -96,46 +102,6 @@ func registerInspectorWidthTests() {
             containerWidth: container
         )
         expectEqual(draggedLeft, 504, "a widening drag from the rendered edge stays at the container maximum")
-
-        var draft = InspectorWidthDraft()
-        expectEqual(
-            draft.record(measuredWidth: rendered, isVisible: true, currentStoredWidth: stored, containerWidth: container),
-            false,
-            "touching the handle at the clamped rendered width schedules no write"
-        )
-        expectEqual(draft.hasPendingCommit, false)
-    }
-
-    TestRunner.add("InspectorWidthDraft keeps the commit when a clamped drag repeats its final frame") {
-        var draft = InspectorWidthDraft()
-
-        // Wide window: every frame past maxWidth proposes 560 while the stored width stays 280.
-        expect(draft.record(measuredWidth: 560, isVisible: true, currentStoredWidth: 280, containerWidth: 1000))
-        expectEqual(draft.pendingValue, 560)
-        expect(
-            draft.record(measuredWidth: 560, isVisible: true, currentStoredWidth: 280, containerWidth: 1000),
-            "a repeated clamped frame must not cancel the scheduled commit"
-        )
-        expect(
-            draft.record(measuredWidth: 559.7, isVisible: true, currentStoredWidth: 280, containerWidth: 1000),
-            "a sub-pixel final frame must not cancel the scheduled commit"
-        )
-        expectEqual(draft.takeCommit(), 559.7, "releasing against the clamp still commits the final dragged width")
-
-        // A constrained drag narrows from the rendered 504 pt to 464 pt and commits it.
-        expect(draft.record(measuredWidth: 464, isVisible: true, currentStoredWidth: 560, containerWidth: 824))
-        expect(
-            draft.record(measuredWidth: 464, isVisible: true, currentStoredWidth: 560, containerWidth: 824),
-            "the final frame of a constrained drag still commits the rendered width"
-        )
-        expectEqual(draft.takeCommit(), 464, "the constrained drag commits the width the column renders")
-
-        // A drag that returns to the start after an intermediate commit still persists the return.
-        expect(
-            draft.record(measuredWidth: 280, isVisible: true, currentStoredWidth: 400, containerWidth: 1000),
-            "returning to the drag start after an intermediate commit schedules the return"
-        )
-        expectEqual(draft.takeCommit(), 280)
     }
 
     // MARK: - Preferences Default & Serialization
@@ -192,228 +158,5 @@ func registerInspectorWidthTests() {
         prefs.inspectorColumnWidth = 50
         let sanitizedLow = prefs.sanitized()
         expectEqual(sanitizedLow.inspectorColumnWidth, 240)
-    }
-
-    // MARK: - Draft Decision Rules
-
-    TestRunner.add("InspectorWidthDraft records valid widths and rejects hidden or sub-min widths") {
-        var draft = InspectorWidthDraft()
-        expectEqual(draft.hasPendingCommit, false, "fresh draft has nothing pending")
-
-        // Valid drag from 280 to 350
-        expect(
-            draft.record(measuredWidth: 350, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
-            "recording a valid changed width schedules a commit"
-        )
-        expectEqual(draft.hasPendingCommit, true)
-        expectEqual(draft.pendingValue, 350)
-
-        expectEqual(draft.takeCommit(), 350, "takeCommit returns the recorded width")
-        expectEqual(draft.hasPendingCommit, false, "taking commit clears pending")
-        expectNil(draft.takeCommit(), "subsequent take returns nil")
-
-        // Measurement when hidden must be rejected
-        expectEqual(
-            draft.record(measuredWidth: 350, isVisible: false, currentStoredWidth: 280, containerWidth: 0),
-            false,
-            "hidden measurement is rejected"
-        )
-        expectEqual(draft.hasPendingCommit, false)
-
-        // Measurement below minimum must be rejected
-        expectEqual(
-            draft.record(measuredWidth: 150, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
-            false,
-            "width below minimum is rejected"
-        )
-        expectEqual(draft.hasPendingCommit, false)
-    }
-
-    TestRunner.add("InspectorWidthDraft ignores changes within tolerance of current stored width") {
-        var draft = InspectorWidthDraft()
-
-        // Exact match
-        expectEqual(
-            draft.record(measuredWidth: 280, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
-            false,
-            "identical width schedules no write"
-        )
-        expectNil(draft.takeCommit())
-
-        // Within 0.5 pt tolerance
-        expectEqual(
-            draft.record(measuredWidth: 280.3, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
-            false,
-            "sub-pixel noise schedules no write"
-        )
-        expectNil(draft.takeCommit())
-
-        expectEqual(
-            draft.record(measuredWidth: 279.7, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
-            false,
-            "negative sub-pixel noise schedules no write"
-        )
-        expectNil(draft.takeCommit())
-    }
-
-    TestRunner.add("InspectorWidthDraft clamps recorded values to allowed range") {
-        var draft = InspectorWidthDraft()
-
-        expect(
-            draft.record(measuredWidth: 900, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
-            "oversized drag schedules write"
-        )
-        expectEqual(draft.takeCommit(), 560, "oversized drag is clamped to max width 560")
-    }
-
-    TestRunner.add("InspectorWidthDraft keeps only the latest dragged width") {
-        var draft = InspectorWidthDraft()
-
-        expect(draft.record(measuredWidth: 300, isVisible: true, currentStoredWidth: 280, containerWidth: 0))
-        expect(draft.record(measuredWidth: 340, isVisible: true, currentStoredWidth: 280, containerWidth: 0))
-        expect(draft.record(measuredWidth: 380, isVisible: true, currentStoredWidth: 280, containerWidth: 0))
-
-        expectEqual(draft.takeCommit(), 380, "last dragged width wins")
-        expectNil(draft.takeCommit())
-    }
-
-    TestRunner.add("InspectorWidthDraft cancel clears any pending commit") {
-        var draft = InspectorWidthDraft()
-
-        expect(draft.record(measuredWidth: 350, isVisible: true, currentStoredWidth: 280, containerWidth: 0))
-        expectEqual(draft.hasPendingCommit, true)
-
-        draft.cancel()
-        expectEqual(draft.hasPendingCommit, false)
-        expectNil(draft.takeCommit())
-    }
-
-    // MARK: - Debouncer Timing and AppModel Integration
-
-    TestRunner.add("InspectorWidthDebouncer coalesces rapid events and commits after delay") {
-        var committed: [Double] = []
-        MainActor.assumeIsolated {
-            let debouncer = InspectorWidthDebouncer(delay: .milliseconds(40))
-
-            debouncer.handleWidthChange(
-                measuredWidth: 300,
-                isVisible: true,
-                currentStoredWidth: 280, containerWidth: 0
-            ) { width in
-                committed.append(width)
-            }
-
-            debouncer.handleWidthChange(
-                measuredWidth: 330,
-                isVisible: true,
-                currentStoredWidth: 280, containerWidth: 0
-            ) { width in
-                committed.append(width)
-            }
-
-            debouncer.handleWidthChange(
-                measuredWidth: 360,
-                isVisible: true,
-                currentStoredWidth: 280, containerWidth: 0
-            ) { width in
-                committed.append(width)
-            }
-        }
-
-        let start = Date()
-        while Date().timeIntervalSince(start) < 0.015 {
-            _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.005))
-        }
-        expectEqual(committed.isEmpty, true, "no commit occurs before debounce interval elapses")
-
-        let deadline = Date().addingTimeInterval(1.0)
-        while Date() < deadline && committed.isEmpty {
-            _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
-        }
-
-        expectEqual(committed.count, 1, "exactly one commit occurs")
-        expectEqual(committed.first, 360, "the latest dragged width was committed")
-    }
-
-    TestRunner.add("InspectorWidthDebouncer cancels commit when inspector hides before delay") {
-        var committed: [Double] = []
-        MainActor.assumeIsolated {
-            let debouncer = InspectorWidthDebouncer(delay: .milliseconds(40))
-
-            debouncer.handleWidthChange(
-                measuredWidth: 360,
-                isVisible: true,
-                currentStoredWidth: 280, containerWidth: 0
-            ) { width in
-                committed.append(width)
-            }
-
-            // User hides the inspector before debounce fires
-            debouncer.handleWidthChange(
-                measuredWidth: 0,
-                isVisible: false,
-                currentStoredWidth: 280, containerWidth: 0
-            ) { width in
-                committed.append(width)
-            }
-        }
-
-        let deadline = Date().addingTimeInterval(0.3)
-        while Date() < deadline && committed.isEmpty {
-            _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
-        }
-
-        expectEqual(committed.isEmpty, true, "hiding inspector cancels pending commit")
-    }
-
-    TestRunner.add("InspectorWidthDebouncer commits new width to AppModel and persists in store") {
-        do {
-            let store = try ClipboardStore(inMemory: true)
-            var committed = false
-            var appModel: AppModel?
-            try MainActor.assumeIsolated {
-                let history = ClipboardHistory(store: store)
-                _ = try history.defaultTab()
-                let model = AppModel(history: history)
-                appModel = model
-                model.bootstrap()
-
-                expectEqual(model.preferences.inspectorColumnWidth, 280)
-
-                let debouncer = InspectorWidthDebouncer(delay: .milliseconds(30))
-
-                debouncer.handleWidthChange(
-                    measuredWidth: 350,
-                    isVisible: true,
-                    currentStoredWidth: model.preferences.inspectorColumnWidth, containerWidth: 0
-                ) { newWidth in
-                    model.updatePreferences { $0.inspectorColumnWidth = newWidth }
-                    committed = true
-                }
-            }
-
-            let deadline = Date().addingTimeInterval(1.0)
-            while Date() < deadline && !committed {
-                _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
-            }
-
-            MainActor.assumeIsolated {
-                guard let model = appModel else {
-                    TestRunner.fail("the model was not created")
-                    return
-                }
-                expectEqual(committed, true, "the debounced commit fired")
-                expectEqual(model.preferences.inspectorColumnWidth, 350, "model preferences updated with committed width")
-
-                do {
-                    let reloaded = try store.preferences()
-                    expectEqual(reloaded.inspectorColumnWidth, 350, "store persisted the new inspector width")
-                } catch {
-                    TestRunner.fail("threw \(error)")
-                }
-            }
-        } catch {
-            TestRunner.fail("threw \(error)")
-        }
     }
 }

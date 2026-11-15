@@ -145,6 +145,13 @@ public enum SidebarLayout {
     }
 }
 
+extension SidebarLayout: ColumnWidthLayout {
+    /// The sidebar width does not depend on the detail container.
+    public static func clampWidth(_ width: Double, containerWidth: CGFloat) -> Double {
+        clampWidth(width)
+    }
+}
+
 /// Geometry and clamping logic for the inspector column in Layout B.
 public enum InspectorColumnLayout {
     public static let defaultWidth: Double = 280
@@ -157,13 +164,17 @@ public enum InspectorColumnLayout {
         min(max(width, minWidth), maxWidth)
     }
 
-    /// Clamps an inspector width within the allowed range and available container width,
-    /// ensuring the center item list retains at least minItemListWidth (320 pt).
+    /// Clamps an inspector width within the allowed range and available
+    /// container width. Whenever the container is at least 560 pt wide
+    /// (minWidth + minItemListWidth), the maximum leaves the center item list
+    /// at least minItemListWidth (320 pt). A narrower container cannot fit
+    /// both minimums, so the inspector keeps its 240 pt minimum and the item
+    /// list takes whatever remains.
     public static func clampWidth(_ width: Double, containerWidth: CGFloat) -> Double {
         guard containerWidth > 0 else { return clampWidth(width) }
-        let maxAllowedByContainer = max(minWidth, Double(containerWidth - minItemListWidth))
-        let effectiveMax = min(maxWidth, maxAllowedByContainer)
-        return min(max(width, minWidth), effectiveMax)
+        guard containerWidth >= minWidth + Double(minItemListWidth) else { return minWidth }
+        let maxAllowedByContainer = Double(containerWidth) - Double(minItemListWidth)
+        return min(max(width, minWidth), min(maxWidth, maxAllowedByContainer))
     }
 
     /// Computes the proposed inspector width given a drag translation and base width.
@@ -178,6 +189,8 @@ public enum InspectorColumnLayout {
         return clampWidth(proposed, containerWidth: containerWidth)
     }
 }
+
+extension InspectorColumnLayout: ColumnWidthLayout {}
 
 /// A font the user chose for one surface: a family name and a point size.
 ///

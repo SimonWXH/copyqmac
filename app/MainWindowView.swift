@@ -225,10 +225,10 @@ struct LayoutBView: View {
     @State private var dragRatio: Double?
     @State private var sidebarWidth: CGFloat?
     @State private var sidebarDragBase: CGFloat?
-    @State private var sidebarDebouncer = SidebarWidthDebouncer()
+    @State private var sidebarDebouncer = ColumnWidthDebouncer<SidebarLayout>()
     @State private var inspectorWidth: CGFloat?
     @State private var inspectorDragBase: CGFloat?
-    @State private var inspectorDebouncer = InspectorWidthDebouncer()
+    @State private var inspectorDebouncer = ColumnWidthDebouncer<InspectorColumnLayout>()
     @State private var containerWidth: CGFloat = 0
 
     private var selectedEntry: ClipboardEntry? {
@@ -246,14 +246,13 @@ struct LayoutBView: View {
     /// The inspector column width the view currently renders. The stored width
     /// is the source of truth until the user drags the column's own edge, so
     /// the persisted width is restored on the first render after a relaunch.
-    /// Clamped against containerWidth if available to guarantee the center item
-    /// list always has at least 320 pt.
+    /// Clamped to the allowed range and to the container, so the center item
+    /// list keeps at least 320 pt whenever the container is at least 560 pt
+    /// wide; below that the inspector stays at its 240 pt minimum and the item
+    /// list takes the remainder.
     private var currentInspectorWidth: CGFloat {
         let preferred = CGFloat(inspectorWidth ?? model.preferences.inspectorColumnWidth)
-        if containerWidth > 0 {
-            return CGFloat(InspectorColumnLayout.clampWidth(Double(preferred), containerWidth: containerWidth))
-        }
-        return CGFloat(InspectorColumnLayout.clampWidth(Double(preferred)))
+        return CGFloat(InspectorColumnLayout.clampWidth(Double(preferred), containerWidth: containerWidth))
     }
 
     var body: some View {
@@ -266,7 +265,7 @@ struct LayoutBView: View {
                         width: $sidebarWidth,
                         dragBase: $sidebarDragBase,
                         storedWidth: model.preferences.sidebarWidth,
-                        isCollapsed: columnVisibility == .detailOnly,
+                        isVisible: columnVisibility != .detailOnly,
                         debouncer: sidebarDebouncer
                     ) { newWidth in
                         model.updatePreferences { $0.sidebarWidth = newWidth }
@@ -362,7 +361,7 @@ struct LayoutBView: View {
                 // Center column + trailing inspector
                 HStack(spacing: 0) {
                     ItemListView(model: model, maxTextLines: 3, onDismiss: onDismiss)
-                        .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     if isInspectorVisible {
                         Divider().opacity(0.35)
@@ -491,8 +490,8 @@ private struct SidebarResizeHandle: View {
     @Binding var width: CGFloat?
     @Binding var dragBase: CGFloat?
     let storedWidth: Double
-    let isCollapsed: Bool
-    let debouncer: SidebarWidthDebouncer
+    let isVisible: Bool
+    let debouncer: ColumnWidthDebouncer<SidebarLayout>
     let onCommit: @MainActor (Double) -> Void
 
     var body: some View {
@@ -517,8 +516,9 @@ private struct SidebarResizeHandle: View {
                         width = CGFloat(proposed)
                         debouncer.handleWidthChange(
                             measuredWidth: proposed,
-                            isCollapsed: isCollapsed,
+                            isVisible: isVisible,
                             currentStoredWidth: storedWidth,
+                            containerWidth: 0,
                             onCommit: onCommit
                         )
                     }
@@ -533,9 +533,11 @@ private struct SidebarResizeHandle: View {
 /// A drag handle pinned to the inspector column's leading edge.
 ///
 /// Dragging updates the rendered width immediately, clamped to the allowed
-/// range (240...560 pt) and the available container width (preserving at least
-/// 320 pt for the item list), and funnels each measurement through the shared
-/// debouncer, which commits the width to preferences once the drag settles.
+/// range (240...560 pt) and the available container width, so the item list
+/// keeps at least 320 pt whenever the container allows it and the inspector
+/// holds its 240 pt minimum below that, and funnels each measurement through
+/// the shared debouncer, which commits the width to preferences once the drag
+/// settles.
 private struct InspectorResizeHandle: View {
     @Binding var width: CGFloat?
     @Binding var dragBase: CGFloat?
@@ -543,7 +545,7 @@ private struct InspectorResizeHandle: View {
     let storedWidth: Double
     let isVisible: Bool
     let containerWidth: CGFloat
-    let debouncer: InspectorWidthDebouncer
+    let debouncer: ColumnWidthDebouncer<InspectorColumnLayout>
     let onCommit: @MainActor (Double) -> Void
 
     var body: some View {

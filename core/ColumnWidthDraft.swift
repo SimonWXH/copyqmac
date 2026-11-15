@@ -1,18 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// SidebarWidthDraft.swift
+// ColumnWidthDraft.swift
 //
-// Debounced commit decision for the Layout B sidebar column width.
+// Debounced commit decision shared by the Layout B sidebar and inspector
+// column widths.
 //
-// The view reads the sidebar column's width from an explicit trailing-edge
-// drag handle and debounces the measurements; this file owns the decision of
-// whether a measurement is valid, whether a write is needed, and which width
-// wins when dragging ceases.
+// Each column reads its width from an explicit drag handle and debounces the
+// measurements; this file owns the decision of whether a measurement is
+// valid, whether a write is needed, and which width wins when dragging
+// ceases. The columns differ only in their limits and in whether the
+// available container narrows the allowed maximum, so a layout supplies that
+// geometry and the commit rule is shared.
 
 import Foundation
 
-/// Debounced commit bookkeeping for the sidebar column width in Layout B.
-public struct SidebarWidthDraft: Equatable, Sendable {
+/// The width limits and clamping rule for one resizable column.
+public protocol ColumnWidthLayout {
+    static var minWidth: Double { get }
+    static var maxWidth: Double { get }
+    static func clampWidth(_ width: Double, containerWidth: CGFloat) -> Double
+}
+
+/// Debounced commit bookkeeping for a resizable column width.
+public struct ColumnWidthDraft<Layout: ColumnWidthLayout> {
     private var pendingWidth: Double?
 
     public init() {}
@@ -26,22 +36,25 @@ public struct SidebarWidthDraft: Equatable, Sendable {
     /// Records `measuredWidth` as the pending width and reports whether a
     /// debounced write should be scheduled.
     ///
-    /// Measurements taken while the sidebar is collapsed or below the minimum
-    /// column width are rejected and clear any pending commit. If the clamped
-    /// width matches `currentStoredWidth` within 0.5 pt, no write is needed
-    /// and any pending commit is cleared.
+    /// Measurements taken while the column is hidden or below the minimum
+    /// column width are rejected and clear any pending commit. Both the
+    /// measurement and the stored width are clamped to the container first, so
+    /// a measurement that renders the same width as the stored width needs no
+    /// write even when the container clamps both of them.
     @discardableResult
     public mutating func record(
         measuredWidth: Double,
-        isCollapsed: Bool,
-        currentStoredWidth: Double
+        isVisible: Bool,
+        currentStoredWidth: Double,
+        containerWidth: CGFloat
     ) -> Bool {
-        guard !isCollapsed, measuredWidth >= SidebarLayout.minWidth else {
+        guard isVisible, measuredWidth >= Layout.minWidth else {
             pendingWidth = nil
             return false
         }
-        let clamped = SidebarLayout.clampWidth(measuredWidth)
-        guard abs(clamped - currentStoredWidth) >= 0.5 else {
+        let clamped = Layout.clampWidth(measuredWidth, containerWidth: containerWidth)
+        let stored = Layout.clampWidth(currentStoredWidth, containerWidth: containerWidth)
+        guard abs(clamped - stored) >= 0.5 else {
             pendingWidth = nil
             return false
         }
@@ -62,11 +75,11 @@ public struct SidebarWidthDraft: Equatable, Sendable {
     }
 }
 
-/// Coordinates the debounced commit of sidebar column width changes.
+/// Coordinates the debounced commit of a column width change.
 @MainActor
-public final class SidebarWidthDebouncer {
+public final class ColumnWidthDebouncer<Layout: ColumnWidthLayout> {
     public let delay: Duration
-    private var draft = SidebarWidthDraft()
+    private var draft = ColumnWidthDraft<Layout>()
     private var task: Task<Void, Never>?
 
     public init(delay: Duration = .milliseconds(500)) {
@@ -79,14 +92,16 @@ public final class SidebarWidthDebouncer {
     /// Handles a new width measurement from the UI.
     public func handleWidthChange(
         measuredWidth: Double,
-        isCollapsed: Bool,
+        isVisible: Bool,
         currentStoredWidth: Double,
+        containerWidth: CGFloat,
         onCommit: @escaping @MainActor (Double) -> Void
     ) {
         let shouldSchedule = draft.record(
             measuredWidth: measuredWidth,
-            isCollapsed: isCollapsed,
-            currentStoredWidth: currentStoredWidth
+            isVisible: isVisible,
+            currentStoredWidth: currentStoredWidth,
+            containerWidth: containerWidth
         )
         task?.cancel()
         task = nil
