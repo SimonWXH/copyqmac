@@ -426,6 +426,9 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case dialogWriteBackPlanUpdatePlural
     case dialogWriteBackPlanSkipSingle
     case dialogWriteBackPlanSkipPlural
+    case dialogWriteBackPlanSkipMore
+    case dialogWriteBackPlanKeptSingle
+    case dialogWriteBackPlanKeptPlural
     case dialogWriteBackSkipInternalOnly
     case dialogWriteBackSkipEmptyContent
     case dialogWriteBackSkipUndecodable
@@ -591,9 +594,10 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case writeBackResultCreatedPlural
     case writeBackResultUpdatedSingle
     case writeBackResultUpdatedPlural
+    case writeBackResultKeptSingle
+    case writeBackResultKeptPlural
     case writeBackResultSkipped
     case writeBackResultStopped
-    case writeBackStageReadFolder
     case writeBackStageWriteGroup
     case watcherSummaryUpdatedInPlace
     case watcherSummaryUpstreamDiscardedSingle
@@ -1347,7 +1351,7 @@ public enum CatalogKey: String, CaseIterable, Sendable {
         case .dialogWriteBackIntro:
             return "This writes every local item of the tab back into its sync folder, with the same files and names a capture writes. It is the recovery step for a folder another program emptied."
         case .dialogWriteBackFooter:
-            return "The folder is only written to: no other file is deleted, renamed, or moved, and a stem that belongs to another entry is never touched. Files already present under a written stem are replaced with the local content, and a stem the tab already owns is rewritten as a whole so its group ends up exactly as a capture would write it."
+            return "The folder is only written to: no file is deleted, renamed, or moved, and a stem that belongs to another entry is never touched. Each written entry replaces only the files it itself produces; every other file already in the folder, including an older file under a written stem that the entry no longer produces, is left exactly where it is."
         case .dialogWriteBackPausedNote:
             return "Sync is paused, so nothing will be written. Resume sync first."
         case .dialogWriteBackPlanWriteSingle:
@@ -1363,9 +1367,15 @@ public enum CatalogKey: String, CaseIterable, Sendable {
         case .dialogWriteBackPlanUpdatePlural:
             return "Update %d files in place."
         case .dialogWriteBackPlanSkipSingle:
-            return "Skip %d entry: %@."
+            return "Skip %d entry:"
         case .dialogWriteBackPlanSkipPlural:
-            return "Skip %d entries: %@."
+            return "Skip %d entries:"
+        case .dialogWriteBackPlanSkipMore:
+            return "and %d more (%d in total)"
+        case .dialogWriteBackPlanKeptSingle:
+            return "Left in place: %d file is already in the folder and its entry does not produce it:"
+        case .dialogWriteBackPlanKeptPlural:
+            return "Left in place: %d files are already in the folder and their entries do not produce them:"
         case .dialogWriteBackSkipInternalOnly:
             return "only internal markers, so there is no content to write"
         case .dialogWriteBackSkipEmptyContent:
@@ -1674,12 +1684,14 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "updated %d file"
         case .writeBackResultUpdatedPlural:
             return "updated %d files"
+        case .writeBackResultKeptSingle:
+            return "left %d existing file in place that the write does not produce"
+        case .writeBackResultKeptPlural:
+            return "left %d existing files in place that the write does not produce"
         case .writeBackResultSkipped:
             return "%d skipped"
         case .writeBackResultStopped:
             return "stopped while %@"
-        case .writeBackStageReadFolder:
-            return "reading the sync folder"
         case .writeBackStageWriteGroup:
             return "writing %@"
         case .watcherSummaryUpdatedInPlace:
@@ -2478,7 +2490,7 @@ public enum CatalogKey: String, CaseIterable, Sendable {
         case .dialogWriteBackIntro:
             return "这会把该标签页的每个本地条目按平时捕获时相同的文件与命名写回其同步文件夹。当同步文件夹被其他程序清空时，这就是恢复步骤。"
         case .dialogWriteBackFooter:
-            return "只会向文件夹写入：不会删除、重命名或移动其它任何文件，也不会触碰属于其他条目的主名。已写入主名下已存在的文件会被本地内容替换，标签页已拥有的主名会整组重写，使其与该条目平时写入的文件组完全一致。"
+            return "只会向文件夹写入：不会删除、重命名或移动任何文件，也不会触碰属于其他条目的主名。每条被写入的条目只替换它自己产生的文件；文件夹中已有的其它任何文件，包括被写入主名下该条目不再产生的旧文件，都会原样保留。"
         case .dialogWriteBackPausedNote:
             return "同步已暂停，因此不会写入任何内容。请先恢复同步。"
         case .dialogWriteBackPlanWriteSingle:
@@ -2494,9 +2506,15 @@ public enum CatalogKey: String, CaseIterable, Sendable {
         case .dialogWriteBackPlanUpdatePlural:
             return "更新 %d 个文件。"
         case .dialogWriteBackPlanSkipSingle:
-            return "跳过 %d 条条目：%@。"
+            return "跳过 %d 条条目："
         case .dialogWriteBackPlanSkipPlural:
-            return "跳过 %d 条条目：%@。"
+            return "跳过 %d 条条目："
+        case .dialogWriteBackPlanSkipMore:
+            return "还有 %d 条（共 %d 条）"
+        case .dialogWriteBackPlanKeptSingle:
+            return "原样保留：%d 个文件已在文件夹中，所属条目不会写入它："
+        case .dialogWriteBackPlanKeptPlural:
+            return "原样保留：%d 个文件已在文件夹中，所属条目不会写入它们："
         case .dialogWriteBackSkipInternalOnly:
             return "仅有内部标记，没有可写入的内容"
         case .dialogWriteBackSkipEmptyContent:
@@ -2805,12 +2823,14 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "更新了 %d 个文件"
         case .writeBackResultUpdatedPlural:
             return "更新了 %d 个文件"
+        case .writeBackResultKeptSingle:
+            return "原样保留了 %d 个写入不会产生的既有文件"
+        case .writeBackResultKeptPlural:
+            return "原样保留了 %d 个写入不会产生的既有文件"
         case .writeBackResultSkipped:
             return "已跳过 %d 个"
         case .writeBackResultStopped:
             return "已在%@时停止"
-        case .writeBackStageReadFolder:
-            return "读取同步文件夹"
         case .writeBackStageWriteGroup:
             return "写入 %@"
         case .watcherSummaryUpdatedInPlace:

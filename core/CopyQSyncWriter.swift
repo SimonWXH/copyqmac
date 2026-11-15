@@ -432,7 +432,10 @@ public final class CopyQSyncWriter: @unchecked Sendable {
     /// content. When the entry owns several groups, the rewrite keeps one stem
     /// and moves the extra groups to the app trash; a caller that must take
     /// nothing out of the folder passes `convergeSupersededGroups: false` and
-    /// leaves every other group where it is.
+    /// leaves every other group where it is. A caller that must additionally
+    /// keep the files of its own group that the new content no longer produces
+    /// passes `keepSupersededFiles: true`, so only same-named files are
+    /// replaced and no file is ever removed.
     @discardableResult
     public func updateEntry(
         _ entry: ClipboardEntry,
@@ -441,6 +444,7 @@ public final class CopyQSyncWriter: @unchecked Sendable {
         stem preferredStem: String? = nil,
         trashRoot: URL? = nil,
         convergeSupersededGroups: Bool = true,
+        keepSupersededFiles: Bool = false,
         fileManager: FileManager = .default
     ) -> SyncLogEntry? {
         updateLock.lock()
@@ -537,9 +541,14 @@ public final class CopyQSyncWriter: @unchecked Sendable {
         let dirURL = URL(fileURLWithPath: normalizedFolder, isDirectory: true)
 
         // Files from the previous content that this version may no longer
-        // write. The whole group is replaced as a unit below.
-        let previousNames = folderNames.filter {
-            CopyQSyncWatcher.itemStem(ofFileName: $0) == stem
+        // write. The whole group is replaced as a unit below; a caller that
+        // keeps superseded files replaces only the files it produces itself.
+        let previousNames = folderNames.filter { name in
+            guard CopyQSyncWatcher.itemStem(ofFileName: name) == stem else { return false }
+            if keepSupersededFiles {
+                return newFiles.keys.contains(String(name.dropFirst(stem.count)))
+            }
+            return true
         }
 
         let written: [SyncWrittenFile]

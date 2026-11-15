@@ -308,13 +308,29 @@ func registerCopyQSyncRestoreTests() {
 
             let english = plan.confirmation(language: .english)
             expect(
-                english.contains("Skip 3 entries: 1 only internal markers"),
-                "the confirmation names the skip reasons: \(english)"
+                english.contains("Skip 3 entries:"),
+                "the confirmation names the skips: \(english)"
+            )
+            expect(
+                english.contains("only internal markers"),
+                "the internal-only row is listed with its reason: \(english)"
+            )
+            expect(
+                english.contains("no content"),
+                "the empty row is listed with its reason: \(english)"
+            )
+            expect(
+                english.contains("public.file-url"),
+                "the undecodable row is listed with its preview: \(english)"
             )
             let chinese = plan.confirmation(language: .simplifiedChinese)
             expect(
                 chinese.contains("跳过 3 条条目："),
                 "the Chinese confirmation reports the same skips: \(chinese)"
+            )
+            expect(
+                chinese.contains("没有内容"),
+                "the Chinese listing names the empty row: \(chinese)"
             )
 
             let result = try CopyQSyncRestore.apply(
@@ -373,6 +389,82 @@ func registerCopyQSyncRestoreTests() {
                 "the written note group"
             )
             expectEqual(restored.notes, "the note is the item", "the note travels back out")
+        } catch {
+            TestRunner.fail("threw \(error)")
+        }
+    }
+
+    TestRunner.add("a written stem keeps an existing sibling file the row does not produce") {
+        do {
+            let paths = try scratch()
+            defer { try? FileManager.default.removeItem(at: paths.root) }
+
+            let (store, tab) = try makeStore(folder: paths.sync)
+            let createdAt = Date(timeIntervalSince1970: 1_780_000_600)
+            let stem = CopyQSyncBridge.formatTimestamp(createdAt)
+            let entry = try store.insert(ClipboardEntry(
+                createdAt: createdAt,
+                tabID: tab.id,
+                flavours: [Fixtures.text("local version")]
+            ))
+            try store.recordWrittenSyncStem(stem, folder: paths.sync.path, entryID: entry.id)
+
+            try Data("folder version".utf8)
+                .write(to: paths.sync.appendingPathComponent(stem + ".txt"))
+            let sibling = stem + CopyQFormat.noteFileSuffix
+            try Data("older sibling note".utf8).write(to: paths.sync.appendingPathComponent(sibling))
+
+            let plan = try CopyQSyncRestore.plan(tabID: tab.id, in: store)
+            expectEqual(plan.entryCount, 1, "the row is still written")
+            expectEqual(plan.rows.first?.stem, stem, "the row keeps its own stem")
+            expectEqual(plan.rows.first?.filesToUpdate, [stem + ".txt"], "the text file is rewritten")
+            expectEqual(plan.rows.first?.filesKept, [sibling], "the plan names the kept sibling")
+            let english = plan.confirmation(language: .english)
+            expect(
+                english.contains("Left in place: 1 file is already in the folder"),
+                "the confirmation states the kept file: \(english)"
+            )
+            expect(
+                english.contains(sibling),
+                "the confirmation lists the kept file: \(english)"
+            )
+            let chinese = plan.confirmation(language: .simplifiedChinese)
+            expect(
+                chinese.contains("原样保留：1 个文件已在文件夹中"),
+                "the Chinese confirmation states the kept file: \(chinese)"
+            )
+
+            let result = try CopyQSyncRestore.apply(
+                plan,
+                in: store,
+                writer: makeWriter(in: paths.root)
+            )
+            expectEqual(result.entriesWritten, 1, "the row is written")
+            expectEqual(result.filesUpdated, 1, "the text file counts as an update")
+            expectEqual(result.filesKept, [sibling], "the result names the kept file")
+            expectEqual(
+                try Data(contentsOf: paths.sync.appendingPathComponent(sibling)),
+                Data("older sibling note".utf8),
+                "the sibling keeps its exact bytes"
+            )
+            expectEqual(
+                try Data(contentsOf: paths.sync.appendingPathComponent(stem + ".txt")),
+                Data("local version".utf8),
+                "the local version is written"
+            )
+            expectEqual(
+                Set(try fileNames(paths.sync)),
+                Set([sibling, stem + ".txt"]),
+                "nothing else appears or disappears"
+            )
+            expect(
+                result.summary(language: .english).contains("left 1 existing file in place"),
+                "the summary reports the kept file: \(result.summary(language: .english))"
+            )
+            expect(
+                result.summary(language: .english).contains(sibling),
+                "the summary lists the kept file: \(result.summary(language: .english))"
+            )
         } catch {
             TestRunner.fail("threw \(error)")
         }
@@ -706,7 +798,8 @@ func registerCopyQSyncRestoreTests() {
                     entryID: 1,
                     stem: "copyq_20260101000000000",
                     filesToCreate: ["copyq_20260101000000000.txt"],
-                    filesToUpdate: []
+                    filesToUpdate: [],
+                    filesKept: []
                 ),
             ],
             skipped: [CopyQSyncRestoreSkip(entryID: 2, stem: nil, reason: .emptyContent)]
@@ -715,12 +808,14 @@ func registerCopyQSyncRestoreTests() {
         let english = plan.confirmation(language: .english)
         expect(english.contains("Write 1 entry back to the folder."), "singular entry wording: \(english)")
         expect(english.contains("Create 1 file."), "singular created wording: \(english)")
-        expect(english.contains("Skip 1 entry: 1 no content."), "the skip reason: \(english)")
+        expect(english.contains("Skip 1 entry:"), "the skip header: \(english)")
+        expect(english.contains("no content"), "the skip line: \(english)")
 
         let chinese = plan.confirmation(language: .simplifiedChinese)
         expect(chinese.contains("将 1 条条目写回文件夹。"), "Chinese entry wording: \(chinese)")
         expect(chinese.contains("新建 1 个文件。"), "Chinese created wording: \(chinese)")
-        expect(chinese.contains("跳过 1 条条目：1 没有内容。"), "Chinese skip reason: \(chinese)")
+        expect(chinese.contains("跳过 1 条条目："), "Chinese skip header: \(chinese)")
+        expect(chinese.contains("没有内容"), "Chinese skip line: \(chinese)")
 
         var result = CopyQSyncRestoreResult(
             entriesWritten: 2,

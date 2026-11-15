@@ -17,11 +17,11 @@
 // bumping, echo suppression, and `written_sync_stems` ownership all apply.
 //
 // Write-only is a hard boundary: the folder is never deleted from, renamed, or
-// rearranged.  A row that already owns a stem is rewritten in place, which
-// replaces that stem's own group - the writer's rule for a content change - and
-// every file under any other stem is left alone.  A failure stops the run where
-// it happened and keeps every file already written; there is no rollback that
-// removes them.
+// rearranged.  A row that already owns a stem is rewritten in place: the files
+// the row produces replace their same-named versions, and any other file
+// already under that stem is left exactly where it is, named in the plan, the
+// confirmation, and the result.  A failure stops the run where it happened and
+// keeps every file already written; there is no rollback that removes them.
 
 import Foundation
 
@@ -37,17 +37,22 @@ public struct CopyQSyncRestoreRow: Equatable, Sendable {
     public let filesToCreate: [String]
     /// Files the write replaces because they already exist under this stem.
     public let filesToUpdate: [String]
+    /// Files already in the folder under this stem that the entry does not
+    /// produce, so the write leaves them exactly where they are.
+    public let filesKept: [String]
 
     public init(
         entryID: Int64,
         stem: String,
         filesToCreate: [String],
-        filesToUpdate: [String]
+        filesToUpdate: [String],
+        filesKept: [String] = []
     ) {
         self.entryID = entryID
         self.stem = stem
         self.filesToCreate = filesToCreate
         self.filesToUpdate = filesToUpdate
+        self.filesKept = filesKept
     }
 }
 
@@ -91,11 +96,63 @@ public struct CopyQSyncRestoreSkip: Equatable, Sendable {
     /// The row's stem when it has one, so a report can name the group.
     public let stem: String?
     public let reason: CopyQSyncRestoreSkipReason
+    /// A short single-line content preview, so a report can show which row
+    /// was skipped.
+    public let preview: String
 
-    public init(entryID: Int64, stem: String?, reason: CopyQSyncRestoreSkipReason) {
+    public init(
+        entryID: Int64,
+        stem: String?,
+        reason: CopyQSyncRestoreSkipReason,
+        preview: String = ""
+    ) {
         self.entryID = entryID
         self.stem = stem
         self.reason = reason
+        self.preview = preview
+    }
+}
+
+/// The per-entry lines the confirmation and the result both show, so a skipped
+/// row or a kept file is never only a count.
+enum CopyQSyncRestoreReport {
+    /// How many per-entry skip lines are listed before the rest is summarised.
+    static let listedSkipLimit = 12
+
+    static func skipLines(
+        _ skips: [CopyQSyncRestoreSkip],
+        language: AppLanguage
+    ) -> [String] {
+        var lines: [String] = []
+        for skip in skips.prefix(listedSkipLimit) {
+            var parts: [String] = []
+            if let stem = skip.stem, !stem.isEmpty { parts.append(stem) }
+            if !skip.preview.isEmpty { parts.append(skip.preview) }
+            parts.append(skip.reason.description(language: language))
+            lines.append("  " + parts.joined(separator: " - "))
+        }
+        if skips.count > listedSkipLimit {
+            lines.append(
+                Localization.format(
+                    .dialogWriteBackPlanSkipMore,
+                    language: language,
+                    skips.count - listedSkipLimit,
+                    skips.count
+                )
+            )
+        }
+        return lines
+    }
+
+    static func keptLines(_ files: [String], language: AppLanguage) -> [String] {
+        var byStem: [String: [String]] = [:]
+        for file in files {
+            let stem = CopyQSyncWatcher.itemStem(ofFileName: file) ?? file
+            byStem[stem, default: []].append(file)
+        }
+        return byStem.keys.sorted().map { stem in
+            "  \(stem): " + byStem[stem]!.sorted().joined(separator: ", ")
+        }
     }
 }
 
@@ -170,30 +227,30 @@ public struct CopyQSyncRestorePlan: Equatable, Sendable {
                     .dialogWriteBackPlanSkipSingle,
                     .dialogWriteBackPlanSkipPlural,
                     language: language,
-                    skipped.count,
-                    skipSummary(language: language)
+                    skipped.count
                 )
             )
+            lines.append(contentsOf: CopyQSyncRestoreReport.skipLines(skipped, language: language))
+        }
+        let kept = rows.flatMap(\.filesKept)
+        if !kept.isEmpty {
+            lines.append(
+                Localization.formatCount(
+                    kept.count,
+                    .dialogWriteBackPlanKeptSingle,
+                    .dialogWriteBackPlanKeptPlural,
+                    language: language,
+                    kept.count
+                )
+            )
+            lines.append(contentsOf: CopyQSyncRestoreReport.keptLines(kept, language: language))
         }
         return lines.joined(separator: "\n")
-    }
-
-    /// The skip reasons with counts, for the confirmation and the report.
-    public func skipSummary(language: AppLanguage) -> String {
-        var counts: [CopyQSyncRestoreSkipReason: Int] = [:]
-        for skip in skipped {
-            counts[skip.reason, default: 0] += 1
-        }
-        return CopyQSyncRestoreSkipReason.allCases.compactMap { reason -> String? in
-            guard let count = counts[reason], count > 0 else { return nil }
-            return "\(count) \(reason.description(language: language))"
-        }.joined(separator: "; ")
     }
 }
 
 /// The stage a write-back stopped at, so a failed run names where it gave up.
 public enum CopyQSyncRestoreStage: Equatable, Sendable {
-    case readingFolder
     case writingGroup(stem: String)
 
     public var description: String {
@@ -202,8 +259,6 @@ public enum CopyQSyncRestoreStage: Equatable, Sendable {
 
     public func description(language: AppLanguage) -> String {
         switch self {
-        case .readingFolder:
-            return Localization.string(.writeBackStageReadFolder, language: language)
         case .writingGroup(let stem):
             return Localization.format(.writeBackStageWriteGroup, language: language, stem)
         }
@@ -214,6 +269,9 @@ public struct CopyQSyncRestoreResult: Equatable, Sendable {
     public var entriesWritten: Int = 0
     public var filesCreated: Int = 0
     public var filesUpdated: Int = 0
+    /// Every file the run left in place because the written row does not
+    /// produce it.
+    public var filesKept: [String] = []
     /// Every entry the run left unwritten, including the plan's own skips.
     public var skipped: [CopyQSyncRestoreSkip] = []
     public var failures: [String] = []
@@ -225,6 +283,7 @@ public struct CopyQSyncRestoreResult: Equatable, Sendable {
         entriesWritten: Int = 0,
         filesCreated: Int = 0,
         filesUpdated: Int = 0,
+        filesKept: [String] = [],
         skipped: [CopyQSyncRestoreSkip] = [],
         failures: [String] = [],
         stoppedAt: CopyQSyncRestoreStage? = nil
@@ -232,6 +291,7 @@ public struct CopyQSyncRestoreResult: Equatable, Sendable {
         self.entriesWritten = entriesWritten
         self.filesCreated = filesCreated
         self.filesUpdated = filesUpdated
+        self.filesKept = filesKept
         self.skipped = skipped
         self.failures = failures
         self.stoppedAt = stoppedAt
@@ -264,8 +324,19 @@ public struct CopyQSyncRestoreResult: Equatable, Sendable {
                 language: language,
                 filesUpdated
             ),
-            Localization.format(.writeBackResultSkipped, language: language, skipped.count),
         ]
+        if !filesKept.isEmpty {
+            parts.append(
+                Localization.formatCount(
+                    filesKept.count,
+                    .writeBackResultKeptSingle,
+                    .writeBackResultKeptPlural,
+                    language: language,
+                    filesKept.count
+                )
+            )
+        }
+        parts.append(Localization.format(.writeBackResultSkipped, language: language, skipped.count))
         if let stoppedAt {
             parts.append(
                 Localization.format(
@@ -275,7 +346,14 @@ public struct CopyQSyncRestoreResult: Equatable, Sendable {
                 )
             )
         }
-        return Localization.joinedSummarySentence(parts, language: language)
+        var lines = [Localization.joinedSummarySentence(parts, language: language)]
+        if !skipped.isEmpty {
+            lines.append(contentsOf: CopyQSyncRestoreReport.skipLines(skipped, language: language))
+        }
+        if !filesKept.isEmpty {
+            lines.append(contentsOf: CopyQSyncRestoreReport.keptLines(filesKept, language: language))
+        }
+        return lines.joined(separator: "\n")
     }
 }
 
@@ -352,7 +430,12 @@ public enum CopyQSyncRestore {
         var skipped: [CopyQSyncRestoreSkip] = []
 
         func skip(_ entry: ClipboardEntry, stem: String?, _ reason: CopyQSyncRestoreSkipReason) {
-            skipped.append(CopyQSyncRestoreSkip(entryID: entry.id, stem: stem, reason: reason))
+            skipped.append(CopyQSyncRestoreSkip(
+                entryID: entry.id,
+                stem: stem,
+                reason: reason,
+                preview: contentPreview(of: entry)
+            ))
         }
 
         for entry in entries {
@@ -407,7 +490,8 @@ public enum CopyQSyncRestore {
                 entryID: entry.id,
                 stem: stem,
                 filesToCreate: produced.filter { !existing.contains($0) },
-                filesToUpdate: produced.filter { existing.contains($0) }
+                filesToUpdate: produced.filter { existing.contains($0) },
+                filesKept: existing.subtracting(produced).sorted()
             ))
         }
 
@@ -477,6 +561,7 @@ public enum CopyQSyncRestore {
                     reason: "write-back",
                     stem: identity.canonicalStem,
                     convergeSupersededGroups: false,
+                    keepSupersededFiles: true,
                     fileManager: fileManager
                 )
                 guard let log else {
@@ -502,6 +587,12 @@ public enum CopyQSyncRestore {
                         result.filesCreated += 1
                     }
                 }
+                let writtenStem = log.stem ?? row.stem
+                let writtenNames = Set(log.files.map(\.path))
+                result.filesKept.append(contentsOf: existing.filter { name in
+                    CopyQSyncWatcher.itemStem(ofFileName: name) == writtenStem
+                        && !writtenNames.contains(name)
+                }.sorted())
                 result.entriesWritten += 1
             }
             return result
@@ -522,5 +613,20 @@ public enum CopyQSyncRestore {
             directory: folder,
             fileManager: fileManager
         ).stem) ?? CopyQSyncBridge.formatTimestamp(entry.createdAt)
+    }
+
+    /// A short single-line content preview, so a report can show which row a
+    /// line is about.
+    private static func contentPreview(of entry: ClipboardEntry) -> String {
+        var text = FlavourDecoder.preview(for: entry.flavours).text ?? ""
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            text = entry.note
+        }
+        let collapsed = text
+            .components(separatedBy: .newlines)
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+        guard collapsed.count > 60 else { return collapsed }
+        return String(collapsed.prefix(60)) + "…"
     }
 }

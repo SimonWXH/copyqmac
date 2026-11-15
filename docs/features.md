@@ -283,17 +283,20 @@ Detailed reference for CopyQ Mac features, implementation behaviours, and data m
   sees the items again instead of losing them. It is the one write path that
   starts from the whole tab rather than from an event. A confirmation states,
   with counts taken from the plan, how many entries are written, how many files
-  are created and rewritten, and which entries are skipped and why (only
+  are created and rewritten, and which entries are skipped: each skipped entry
+  is named with its stem, a short content preview, and its reason (only
   internal markers, no content, content that cannot be decoded into the sync
   format, a group the folder already carries, or a stem held only by the legacy
-  creation-time rule whose content differs). It is write-only: no file in the
-  folder is deleted, renamed, or moved, a stem that belongs to another entry is
-  never touched, a stem the tab already owns is rewritten as a whole so its
-  group matches a capture, and a failure stops the run where it happened and
-  keeps every file already written. Unmapped tabs and paused sync are refused,
-  the write runs inside the writer's settled-writes barrier, and every written
-  stem is recorded for its entry so a repeat writes no duplicate and the
-  watcher never echoes the files back as new items.
+  creation-time rule whose content differs), listed for the first 12 and then
+  summarised. It is write-only: no file in the folder is deleted, renamed, or
+  moved, a stem that belongs to another entry is never touched, a written entry
+  replaces only the files it itself produces, so an older file under its stem
+  that the entry no longer produces is left exactly where it is and named in
+  the plan, the confirmation, and the result, and a failure stops the run
+  where it happened and keeps every file already written. Unmapped tabs and
+  paused sync are refused, the write runs inside the writer's settled-writes
+  barrier, and every written stem is recorded for its entry so a repeat writes
+  no duplicate and the watcher never echoes the files back as new items.
 - **CopyQ import.** File ▸ "Import from CopyQ…" (⌘I) reads an itemsync folder, a
   folder holding several of them, or a `.cpq` archive and merges the items into a
   matching tab or a tab named after the source. File ▸ "Import Configured Sync
