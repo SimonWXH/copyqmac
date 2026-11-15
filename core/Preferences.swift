@@ -175,11 +175,7 @@ public enum InspectorColumnLayout {
         containerWidth: CGFloat = 0
     ) -> Double {
         let proposed = baseWidth - Double(translationX)
-        if containerWidth > 0 {
-            return clampWidth(proposed, containerWidth: containerWidth)
-        } else {
-            return clampWidth(proposed)
-        }
+        return clampWidth(proposed, containerWidth: containerWidth)
     }
 }
 

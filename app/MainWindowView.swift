@@ -424,7 +424,7 @@ struct LayoutBView: View {
                             InspectorResizeHandle(
                                 width: $inspectorWidth,
                                 dragBase: $inspectorDragBase,
-                                storedWidth: model.preferences.inspectorColumnWidth,
+                                renderedWidth: currentInspectorWidth,
                                 isVisible: isInspectorVisible,
                                 containerWidth: containerWidth,
                                 debouncer: inspectorDebouncer
@@ -538,7 +538,7 @@ private struct SidebarResizeHandle: View {
 private struct InspectorResizeHandle: View {
     @Binding var width: CGFloat?
     @Binding var dragBase: CGFloat?
-    let storedWidth: Double
+    let renderedWidth: CGFloat
     let isVisible: Bool
     let containerWidth: CGFloat
     let debouncer: InspectorWidthDebouncer
@@ -558,7 +558,7 @@ private struct InspectorResizeHandle: View {
             .gesture(
                 DragGesture(minimumDistance: 1)
                     .onChanged { value in
-                        let base = dragBase ?? width ?? CGFloat(storedWidth)
+                        let base = dragBase ?? renderedWidth
                         dragBase = base
                         let proposed = InspectorColumnLayout.width(
                             baseWidth: Double(base),
@@ -569,7 +569,7 @@ private struct InspectorResizeHandle: View {
                         debouncer.handleWidthChange(
                             measuredWidth: proposed,
                             isVisible: isVisible,
-                            currentStoredWidth: storedWidth,
+                            currentWidth: Double(renderedWidth),
                             onCommit: onCommit
                         )
                     }

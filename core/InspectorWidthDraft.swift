@@ -28,20 +28,20 @@ public struct InspectorWidthDraft: Equatable, Sendable {
     ///
     /// Measurements taken while the inspector is hidden or below the minimum
     /// column width are rejected and clear any pending commit. If the clamped
-    /// width matches `currentStoredWidth` within 0.5 pt, no write is needed
-    /// and any pending commit is cleared.
+    /// width matches the currently rendered width within 0.5 pt, no write is
+    /// needed and any pending commit is cleared.
     @discardableResult
     public mutating func record(
         measuredWidth: Double,
         isVisible: Bool,
-        currentStoredWidth: Double
+        currentWidth: Double
     ) -> Bool {
         guard isVisible, measuredWidth >= InspectorColumnLayout.minWidth else {
             pendingWidth = nil
             return false
         }
         let clamped = InspectorColumnLayout.clampWidth(measuredWidth)
-        guard abs(clamped - currentStoredWidth) >= 0.5 else {
+        guard abs(clamped - currentWidth) >= 0.5 else {
             pendingWidth = nil
             return false
         }
@@ -80,13 +80,13 @@ public final class InspectorWidthDebouncer {
     public func handleWidthChange(
         measuredWidth: Double,
         isVisible: Bool,
-        currentStoredWidth: Double,
+        currentWidth: Double,
         onCommit: @escaping @MainActor (Double) -> Void
     ) {
         let shouldSchedule = draft.record(
             measuredWidth: measuredWidth,
             isVisible: isVisible,
-            currentStoredWidth: currentStoredWidth
+            currentWidth: currentWidth
         )
         task?.cancel()
         task = nil
