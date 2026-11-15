@@ -964,6 +964,64 @@ func registerWindowLayoutTests() {
         }
     }
 
+    TestRunner.add("Layout B renders the sidebar column at the stored width on first layout") {
+        MainActor.assumeIsolated {
+            do {
+                for stored in [160.0, 200.0, 240.0, 260.0] {
+                    let harness = try LayoutBWindowHarness(root: .layoutB, sidebarWidth: stored)
+                    defer { harness.close() }
+                    harness.settle(0.4)
+
+                    guard let rendered = harness.renderedSidebarWidth else {
+                        TestRunner.fail("could not measure the rendered sidebar width for stored \(stored)")
+                        return
+                    }
+                    expectEqual(
+                        rendered, CGFloat(stored), accuracy: 1.0,
+                        "the sidebar column renders at the stored width \(stored) on first layout"
+                    )
+                }
+            } catch {
+                TestRunner.fail("threw \(error)")
+            }
+        }
+    }
+
+    TestRunner.add("Layout B sidebar column follows a committed width preference update") {
+        MainActor.assumeIsolated {
+            do {
+                let harness = try LayoutBWindowHarness(root: .layoutB, sidebarWidth: 200)
+                defer { harness.close() }
+                harness.settle(0.4)
+
+                guard let initial = harness.renderedSidebarWidth else {
+                    TestRunner.fail("could not measure the rendered sidebar width")
+                    return
+                }
+                expectEqual(initial, 200, accuracy: 1.0, "the column starts at the stored width")
+
+                // The debounced commit path writes through updatePreferences;
+                // the rendered column must follow the stored width.
+                harness.model.updatePreferences { $0.sidebarWidth = 235 }
+                harness.settle(0.4)
+
+                guard let updated = harness.renderedSidebarWidth else {
+                    TestRunner.fail("could not measure the rendered sidebar width after the update")
+                    return
+                }
+                expectEqual(
+                    updated, 235, accuracy: 1.0,
+                    "the rendered column follows the stored width after a commit"
+                )
+
+                let reloaded = harness.model.preferences
+                expectEqual(reloaded.sidebarWidth, 235, "the model preferences keep the committed width")
+            } catch {
+                TestRunner.fail("threw \(error)")
+            }
+        }
+    }
+
     TestRunner.add("sidebar toggle button Control-Command-S shortcut toggles the sidebar") {
         MainActor.assumeIsolated {
             let harness = SidebarToggleHarness()
@@ -1166,14 +1224,15 @@ private final class LayoutBWindowHarness {
     init(
         inspectorSplitRatio: Double = 0.55,
         root: Root = .mainWindow,
-        size: NSSize = NSSize(width: 900, height: 460)
+        size: NSSize = NSSize(width: 900, height: 460),
+        sidebarWidth: Double = SidebarLayout.defaultWidth
     ) throws {
         _ = NSApplication.shared
         let store = try ClipboardStore(inMemory: true)
         var preferences = try store.preferences()
         preferences.windowLayout = .layoutB
         preferences.inspectorSplitRatio = inspectorSplitRatio
-        preferences.sidebarWidth = SidebarLayout.defaultWidth
+        preferences.sidebarWidth = sidebarWidth
         try store.setPreferences(preferences)
         let history = ClipboardHistory(store: store)
         secondTab = try history.addTab(name: "Later")
@@ -1266,6 +1325,27 @@ private final class LayoutBWindowHarness {
 
     /// Whether the split item that hosts the sidebar is collapsed. The split
     /// item reports the `NavigationSplitView` state directly, while
+    /// The rendered width of the Layout B sidebar content, measured through the
+    /// AppKit split view that backs NavigationSplitView. The sidebar is the
+    /// first split item. NavigationSplitView insets its content behind a glass
+    /// effect border, so the content width is the pane width minus that inset
+    /// on both sides; the inset is derived from the live view tree.
+    var renderedSidebarWidth: CGFloat? {
+        guard let contentView = window.contentView,
+              let splitView = Self.firstSplitView(in: contentView),
+              let pane = splitView.arrangedSubviews.first
+        else { return nil }
+        func firstInsetX(_ view: NSView) -> CGFloat? {
+            for subview in view.subviews {
+                if subview.frame.origin.x > 0.5 { return subview.frame.origin.x }
+                if let found = firstInsetX(subview) { return found }
+            }
+            return nil
+        }
+        guard let inset = firstInsetX(pane) else { return pane.frame.width }
+        return pane.frame.width - inset
+    }
+
     /// `NSSplitView.isSubviewCollapsed` stays false until the collapse animation
     /// completes, which an unshown window never does.
     var isSidebarCollapsed: Bool {

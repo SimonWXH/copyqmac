@@ -212,14 +212,6 @@ private struct ToolbarToggleAnchor: NSViewRepresentable {
     }
 }
 
-private struct SidebarWidthPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = CGFloat(SidebarLayout.defaultWidth)
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 // MARK: - Layout B (Sidebar + Inspector)
 
 struct LayoutBView: View {
@@ -231,6 +223,8 @@ struct LayoutBView: View {
     @State private var isInspectorVisible = true
     @State private var noteFocused = false
     @State private var dragRatio: Double?
+    @State private var sidebarWidth: CGFloat?
+    @State private var sidebarDragBase: CGFloat?
     @State private var sidebarDebouncer = SidebarWidthDebouncer()
 
     private var selectedEntry: ClipboardEntry? {
@@ -238,31 +232,33 @@ struct LayoutBView: View {
         return model.entries.first { $0.id == id }
     }
 
+    /// The sidebar column width the view currently renders. The stored width
+    /// is the source of truth until the user drags the column's own edge, so
+    /// the persisted width is restored on the first render after a relaunch.
+    private var currentSidebarWidth: CGFloat {
+        CGFloat(sidebarWidth ?? model.preferences.sidebarWidth)
+    }
+
     var body: some View {
         let lang = model.preferences.language
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarTabView(model: model)
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(
-                            key: SidebarWidthPreferenceKey.self,
-                            value: geo.size.width
-                        )
-                    }
-                )
-                .onPreferenceChange(SidebarWidthPreferenceKey.self) { width in
-                    sidebarDebouncer.handleWidthChange(
-                        measuredWidth: Double(width),
+                .frame(width: currentSidebarWidth)
+                .overlay(alignment: .trailing) {
+                    SidebarResizeHandle(
+                        width: $sidebarWidth,
+                        dragBase: $sidebarDragBase,
+                        storedWidth: model.preferences.sidebarWidth,
                         isCollapsed: columnVisibility == .detailOnly,
-                        currentStoredWidth: model.preferences.sidebarWidth
+                        debouncer: sidebarDebouncer
                     ) { newWidth in
                         model.updatePreferences { $0.sidebarWidth = newWidth }
                     }
                 }
                 .navigationSplitViewColumnWidth(
-                    min: CGFloat(SidebarLayout.minWidth),
-                    ideal: CGFloat(model.preferences.sidebarWidth),
-                    max: CGFloat(SidebarLayout.maxWidth)
+                    min: currentSidebarWidth,
+                    ideal: currentSidebarWidth,
+                    max: currentSidebarWidth
                 )
                 .toolbar(removing: .sidebarToggle)
         } detail: {
@@ -432,6 +428,56 @@ struct LayoutBView: View {
         .onDisappear {
             sidebarDebouncer.cancel()
         }
+    }
+}
+
+// MARK: - Sidebar Resize Handle
+
+/// A drag handle pinned to the sidebar column's trailing edge.
+///
+/// The Layout B sidebar column width is managed explicitly (min = ideal = max
+/// on the column), so the split view's own divider is inert; this handle owns
+/// resizing. Dragging updates the rendered width immediately, clamped to the
+/// allowed range, and funnels each measurement through the shared debouncer,
+/// which commits the width to preferences once the drag settles.
+private struct SidebarResizeHandle: View {
+    @Binding var width: CGFloat?
+    @Binding var dragBase: CGFloat?
+    let storedWidth: Double
+    let isCollapsed: Bool
+    let debouncer: SidebarWidthDebouncer
+    let onCommit: @MainActor (Double) -> Void
+
+    var body: some View {
+        Color.clear
+            .frame(width: 8)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                if hovering {
+                    NSCursor.resizeLeftRight.set()
+                } else {
+                    NSCursor.arrow.set()
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        let base = dragBase ?? width ?? CGFloat(storedWidth)
+                        dragBase = base
+                        let proposed = SidebarLayout.clampWidth(
+                            Double(base + value.translation.width)
+                        )
+                        width = CGFloat(proposed)
+                        debouncer.handleWidthChange(
+                            measuredWidth: proposed,
+                            isCollapsed: isCollapsed,
+                            currentStoredWidth: storedWidth,
+                            onCommit: onCommit
+                        )
+                    }
+                    .onEnded { _ in dragBase = nil }
+            )
+            .accessibilityLabel(Text("Resize Sidebar"))
     }
 }
 
