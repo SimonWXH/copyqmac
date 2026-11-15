@@ -28,7 +28,7 @@ extension View {
 }
 
 /// Small icon button that uses the unified hover button style.
-struct GlassActionButton: View {
+struct HoverActionButton: View {
     let systemImage: String
     let help: String
     let action: () -> Void

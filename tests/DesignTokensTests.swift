@@ -157,7 +157,7 @@ func registerDesignTokensTests() {
         )
     }
 
-    TestRunner.add("hover button style updates rendered background on hover transition") {
+    TestRunner.add("unhovered hover-style button renders a transparent background") {
         try MainActor.assumeIsolated {
             let label = Color.clear.frame(width: 40, height: 20)
 
