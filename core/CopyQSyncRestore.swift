@@ -55,7 +55,7 @@ public struct CopyQSyncRestoreRow: Equatable, Sendable {
 public enum CopyQSyncRestoreSkipReason: String, CaseIterable, Equatable, Sendable {
     /// The row holds nothing but this app's own bookkeeping markers.
     case internalOnly
-    /// The row holds no flavours at all.
+    /// The row holds nothing at all: no flavour, no note, and no pin.
     case emptyContent
     /// The row holds payload that cannot be folded into a sync item, so the
     /// write would produce a contentless group.
@@ -356,7 +356,7 @@ public enum CopyQSyncRestore {
         }
 
         for entry in entries {
-            if entry.flavours.isEmpty {
+            if entry.flavours.isEmpty, entry.note.isEmpty, !entry.pinned {
                 skip(entry, stem: nil, .emptyContent)
                 continue
             }

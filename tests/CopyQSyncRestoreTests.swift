@@ -331,6 +331,53 @@ func registerCopyQSyncRestoreTests() {
         }
     }
 
+    TestRunner.add("a row whose only content is its note is written, not skipped as empty") {
+        do {
+            let paths = try scratch()
+            defer { try? FileManager.default.removeItem(at: paths.root) }
+
+            let (store, tab) = try makeStore(folder: paths.sync)
+            let createdAt = Date(timeIntervalSince1970: 1_780_000_200)
+            _ = try store.insert(ClipboardEntry(
+                createdAt: createdAt,
+                tabID: tab.id,
+                note: "the note is the item",
+                flavours: []
+            ))
+
+            let stem = CopyQSyncBridge.formatTimestamp(createdAt)
+            let plan = try CopyQSyncRestore.plan(tabID: tab.id, in: store)
+            expectEqual(plan.entryCount, 1, "the note-only row is planned")
+            expectEqual(plan.skipped, [], "nothing is skipped")
+            expectEqual(plan.rows.first?.stem, stem, "the row follows the capture naming rule")
+            expectEqual(
+                plan.rows.first?.filesToCreate,
+                [stem + CopyQFormat.noteFileSuffix],
+                "the plan predicts the note file"
+            )
+
+            let result = try CopyQSyncRestore.apply(
+                plan,
+                in: store,
+                writer: makeWriter(in: paths.root)
+            )
+            expectEqual(result.entriesWritten, 1, "the note-only row is written")
+            expectEqual(
+                try fileNames(paths.sync),
+                [stem + CopyQFormat.noteFileSuffix],
+                "the folder holds the note file"
+            )
+            let contents = try CopyQSyncFolder.read(atPath: paths.sync.path)
+            let restored = try unwrap(
+                contents.items.first { $0.baseName == stem },
+                "the written note group"
+            )
+            expectEqual(restored.notes, "the note is the item", "the note travels back out")
+        } catch {
+            TestRunner.fail("threw \(error)")
+        }
+    }
+
     TestRunner.add("every written stem is recorded for its row and a repeat writes no duplicate") {
         do {
             let paths = try scratch()
