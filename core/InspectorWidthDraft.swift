@@ -27,21 +27,24 @@ public struct InspectorWidthDraft: Equatable, Sendable {
     /// debounced write should be scheduled.
     ///
     /// Measurements taken while the inspector is hidden or below the minimum
-    /// column width are rejected and clear any pending commit. If the clamped
-    /// width matches the currently rendered width within 0.5 pt, no write is
-    /// needed and any pending commit is cleared.
+    /// column width are rejected and clear any pending commit. Both the
+    /// measurement and the stored width are clamped to the container first, so
+    /// a measurement that renders the same width as the stored width needs no
+    /// write even when the container clamps both of them.
     @discardableResult
     public mutating func record(
         measuredWidth: Double,
         isVisible: Bool,
-        currentWidth: Double
+        currentStoredWidth: Double,
+        containerWidth: CGFloat
     ) -> Bool {
         guard isVisible, measuredWidth >= InspectorColumnLayout.minWidth else {
             pendingWidth = nil
             return false
         }
-        let clamped = InspectorColumnLayout.clampWidth(measuredWidth)
-        guard abs(clamped - currentWidth) >= 0.5 else {
+        let clamped = InspectorColumnLayout.clampWidth(measuredWidth, containerWidth: containerWidth)
+        let stored = InspectorColumnLayout.clampWidth(currentStoredWidth, containerWidth: containerWidth)
+        guard abs(clamped - stored) >= 0.5 else {
             pendingWidth = nil
             return false
         }
@@ -80,13 +83,15 @@ public final class InspectorWidthDebouncer {
     public func handleWidthChange(
         measuredWidth: Double,
         isVisible: Bool,
-        currentWidth: Double,
+        currentStoredWidth: Double,
+        containerWidth: CGFloat,
         onCommit: @escaping @MainActor (Double) -> Void
     ) {
         let shouldSchedule = draft.record(
             measuredWidth: measuredWidth,
             isVisible: isVisible,
-            currentWidth: currentWidth
+            currentStoredWidth: currentStoredWidth,
+            containerWidth: containerWidth
         )
         task?.cancel()
         task = nil

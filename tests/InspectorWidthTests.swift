@@ -99,11 +99,43 @@ func registerInspectorWidthTests() {
 
         var draft = InspectorWidthDraft()
         expectEqual(
-            draft.record(measuredWidth: rendered, isVisible: true, currentWidth: rendered),
+            draft.record(measuredWidth: rendered, isVisible: true, currentStoredWidth: stored, containerWidth: container),
             false,
             "touching the handle at the clamped rendered width schedules no write"
         )
         expectEqual(draft.hasPendingCommit, false)
+    }
+
+    TestRunner.add("InspectorWidthDraft keeps the commit when a clamped drag repeats its final frame") {
+        var draft = InspectorWidthDraft()
+
+        // Wide window: every frame past maxWidth proposes 560 while the stored width stays 280.
+        expect(draft.record(measuredWidth: 560, isVisible: true, currentStoredWidth: 280, containerWidth: 1000))
+        expectEqual(draft.pendingValue, 560)
+        expect(
+            draft.record(measuredWidth: 560, isVisible: true, currentStoredWidth: 280, containerWidth: 1000),
+            "a repeated clamped frame must not cancel the scheduled commit"
+        )
+        expect(
+            draft.record(measuredWidth: 559.7, isVisible: true, currentStoredWidth: 280, containerWidth: 1000),
+            "a sub-pixel final frame must not cancel the scheduled commit"
+        )
+        expectEqual(draft.takeCommit(), 559.7, "releasing against the clamp still commits the final dragged width")
+
+        // A constrained drag narrows from the rendered 504 pt to 464 pt and commits it.
+        expect(draft.record(measuredWidth: 464, isVisible: true, currentStoredWidth: 560, containerWidth: 824))
+        expect(
+            draft.record(measuredWidth: 464, isVisible: true, currentStoredWidth: 560, containerWidth: 824),
+            "the final frame of a constrained drag still commits the rendered width"
+        )
+        expectEqual(draft.takeCommit(), 464, "the constrained drag commits the width the column renders")
+
+        // A drag that returns to the start after an intermediate commit still persists the return.
+        expect(
+            draft.record(measuredWidth: 280, isVisible: true, currentStoredWidth: 400, containerWidth: 1000),
+            "returning to the drag start after an intermediate commit schedules the return"
+        )
+        expectEqual(draft.takeCommit(), 280)
     }
 
     // MARK: - Preferences Default & Serialization
@@ -170,7 +202,7 @@ func registerInspectorWidthTests() {
 
         // Valid drag from 280 to 350
         expect(
-            draft.record(measuredWidth: 350, isVisible: true, currentWidth: 280),
+            draft.record(measuredWidth: 350, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
             "recording a valid changed width schedules a commit"
         )
         expectEqual(draft.hasPendingCommit, true)
@@ -182,7 +214,7 @@ func registerInspectorWidthTests() {
 
         // Measurement when hidden must be rejected
         expectEqual(
-            draft.record(measuredWidth: 350, isVisible: false, currentWidth: 280),
+            draft.record(measuredWidth: 350, isVisible: false, currentStoredWidth: 280, containerWidth: 0),
             false,
             "hidden measurement is rejected"
         )
@@ -190,7 +222,7 @@ func registerInspectorWidthTests() {
 
         // Measurement below minimum must be rejected
         expectEqual(
-            draft.record(measuredWidth: 150, isVisible: true, currentWidth: 280),
+            draft.record(measuredWidth: 150, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
             false,
             "width below minimum is rejected"
         )
@@ -202,7 +234,7 @@ func registerInspectorWidthTests() {
 
         // Exact match
         expectEqual(
-            draft.record(measuredWidth: 280, isVisible: true, currentWidth: 280),
+            draft.record(measuredWidth: 280, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
             false,
             "identical width schedules no write"
         )
@@ -210,14 +242,14 @@ func registerInspectorWidthTests() {
 
         // Within 0.5 pt tolerance
         expectEqual(
-            draft.record(measuredWidth: 280.3, isVisible: true, currentWidth: 280),
+            draft.record(measuredWidth: 280.3, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
             false,
             "sub-pixel noise schedules no write"
         )
         expectNil(draft.takeCommit())
 
         expectEqual(
-            draft.record(measuredWidth: 279.7, isVisible: true, currentWidth: 280),
+            draft.record(measuredWidth: 279.7, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
             false,
             "negative sub-pixel noise schedules no write"
         )
@@ -228,7 +260,7 @@ func registerInspectorWidthTests() {
         var draft = InspectorWidthDraft()
 
         expect(
-            draft.record(measuredWidth: 900, isVisible: true, currentWidth: 280),
+            draft.record(measuredWidth: 900, isVisible: true, currentStoredWidth: 280, containerWidth: 0),
             "oversized drag schedules write"
         )
         expectEqual(draft.takeCommit(), 560, "oversized drag is clamped to max width 560")
@@ -237,9 +269,9 @@ func registerInspectorWidthTests() {
     TestRunner.add("InspectorWidthDraft keeps only the latest dragged width") {
         var draft = InspectorWidthDraft()
 
-        expect(draft.record(measuredWidth: 300, isVisible: true, currentWidth: 280))
-        expect(draft.record(measuredWidth: 340, isVisible: true, currentWidth: 280))
-        expect(draft.record(measuredWidth: 380, isVisible: true, currentWidth: 280))
+        expect(draft.record(measuredWidth: 300, isVisible: true, currentStoredWidth: 280, containerWidth: 0))
+        expect(draft.record(measuredWidth: 340, isVisible: true, currentStoredWidth: 280, containerWidth: 0))
+        expect(draft.record(measuredWidth: 380, isVisible: true, currentStoredWidth: 280, containerWidth: 0))
 
         expectEqual(draft.takeCommit(), 380, "last dragged width wins")
         expectNil(draft.takeCommit())
@@ -248,7 +280,7 @@ func registerInspectorWidthTests() {
     TestRunner.add("InspectorWidthDraft cancel clears any pending commit") {
         var draft = InspectorWidthDraft()
 
-        expect(draft.record(measuredWidth: 350, isVisible: true, currentWidth: 280))
+        expect(draft.record(measuredWidth: 350, isVisible: true, currentStoredWidth: 280, containerWidth: 0))
         expectEqual(draft.hasPendingCommit, true)
 
         draft.cancel()
@@ -266,7 +298,7 @@ func registerInspectorWidthTests() {
             debouncer.handleWidthChange(
                 measuredWidth: 300,
                 isVisible: true,
-                currentWidth: 280
+                currentStoredWidth: 280, containerWidth: 0
             ) { width in
                 committed.append(width)
             }
@@ -274,7 +306,7 @@ func registerInspectorWidthTests() {
             debouncer.handleWidthChange(
                 measuredWidth: 330,
                 isVisible: true,
-                currentWidth: 280
+                currentStoredWidth: 280, containerWidth: 0
             ) { width in
                 committed.append(width)
             }
@@ -282,7 +314,7 @@ func registerInspectorWidthTests() {
             debouncer.handleWidthChange(
                 measuredWidth: 360,
                 isVisible: true,
-                currentWidth: 280
+                currentStoredWidth: 280, containerWidth: 0
             ) { width in
                 committed.append(width)
             }
@@ -311,7 +343,7 @@ func registerInspectorWidthTests() {
             debouncer.handleWidthChange(
                 measuredWidth: 360,
                 isVisible: true,
-                currentWidth: 280
+                currentStoredWidth: 280, containerWidth: 0
             ) { width in
                 committed.append(width)
             }
@@ -320,7 +352,7 @@ func registerInspectorWidthTests() {
             debouncer.handleWidthChange(
                 measuredWidth: 0,
                 isVisible: false,
-                currentWidth: 280
+                currentStoredWidth: 280, containerWidth: 0
             ) { width in
                 committed.append(width)
             }
@@ -353,7 +385,7 @@ func registerInspectorWidthTests() {
                 debouncer.handleWidthChange(
                     measuredWidth: 350,
                     isVisible: true,
-                    currentWidth: model.preferences.inspectorColumnWidth
+                    currentStoredWidth: model.preferences.inspectorColumnWidth, containerWidth: 0
                 ) { newWidth in
                     model.updatePreferences { $0.inspectorColumnWidth = newWidth }
                     committed = true

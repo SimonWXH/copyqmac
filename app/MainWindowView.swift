@@ -425,6 +425,7 @@ struct LayoutBView: View {
                                 width: $inspectorWidth,
                                 dragBase: $inspectorDragBase,
                                 renderedWidth: currentInspectorWidth,
+                                storedWidth: model.preferences.inspectorColumnWidth,
                                 isVisible: isInspectorVisible,
                                 containerWidth: containerWidth,
                                 debouncer: inspectorDebouncer
@@ -539,6 +540,7 @@ private struct InspectorResizeHandle: View {
     @Binding var width: CGFloat?
     @Binding var dragBase: CGFloat?
     let renderedWidth: CGFloat
+    let storedWidth: Double
     let isVisible: Bool
     let containerWidth: CGFloat
     let debouncer: InspectorWidthDebouncer
@@ -569,11 +571,17 @@ private struct InspectorResizeHandle: View {
                         debouncer.handleWidthChange(
                             measuredWidth: proposed,
                             isVisible: isVisible,
-                            currentWidth: Double(renderedWidth),
+                            currentStoredWidth: storedWidth,
+                            containerWidth: containerWidth,
                             onCommit: onCommit
                         )
                     }
-                    .onEnded { _ in dragBase = nil }
+                    .onEnded { _ in
+                        if !debouncer.hasPendingCommit {
+                            width = nil
+                        }
+                        dragBase = nil
+                    }
             )
             .accessibilityLabel(Text("Resize Inspector"))
     }
