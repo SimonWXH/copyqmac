@@ -1165,7 +1165,6 @@ private final class LayoutBWindowHarness {
 
     init(
         inspectorSplitRatio: Double = 0.55,
-        sidebarWidth: Double = SidebarLayout.defaultWidth,
         root: Root = .mainWindow,
         size: NSSize = NSSize(width: 900, height: 460)
     ) throws {
@@ -1174,7 +1173,7 @@ private final class LayoutBWindowHarness {
         var preferences = try store.preferences()
         preferences.windowLayout = .layoutB
         preferences.inspectorSplitRatio = inspectorSplitRatio
-        preferences.sidebarWidth = sidebarWidth
+        preferences.sidebarWidth = SidebarLayout.defaultWidth
         try store.setPreferences(preferences)
         let history = ClipboardHistory(store: store)
         secondTab = try history.addTab(name: "Later")
