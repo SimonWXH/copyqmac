@@ -144,6 +144,16 @@ struct EntryContextActions {
     )
 }
 
+// MARK: - Row metrics
+
+/// Metrics governing row presentation and line limits in entry lists.
+enum EntryRowMetrics {
+    /// Default line limit for Layout A and compact single-column views.
+    static let defaultMaxTextLines = 2
+    /// Expanded line limit for Layout B resizable item list column.
+    static let expandedMaxTextLines = 6
+}
+
 // MARK: - Row content
 
 private struct EntryRowContent: View {
@@ -164,7 +174,7 @@ private struct EntryRowContent: View {
     /// Nil keeps the row's default body font.
     let font: NSFont?
     /// Maximum lines for primary text wrapping before truncating with an ellipsis.
-    var maxTextLines: Int = 2
+    var maxTextLines: Int = EntryRowMetrics.defaultMaxTextLines
 
     @State private var isHovering = false
 
@@ -346,7 +356,7 @@ struct EntryListView: NSViewRepresentable {
     /// The interface language, used by the row help and the context menu.
     var language: AppLanguage = .english
     /// Maximum lines for primary text wrapping.
-    var maxTextLines: Int = 2
+    var maxTextLines: Int = EntryRowMetrics.defaultMaxTextLines
     let actions: EntryRowActions
     let contextActions: EntryContextActions
     /// Reports the complete selection the user made with the mouse. The focus
@@ -992,7 +1002,7 @@ private final class EntryCellView: NSTableCellView {
         language: AppLanguage,
         width: CGFloat,
         font: NSFont?,
-        maxTextLines: Int = 2
+        maxTextLines: Int = EntryRowMetrics.defaultMaxTextLines
     ) {
         hosting.rootView = EntryRowContent(
             row: row,

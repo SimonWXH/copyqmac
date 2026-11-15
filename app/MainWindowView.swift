@@ -360,7 +360,7 @@ struct LayoutBView: View {
 
                 // Center column + trailing inspector
                 HStack(spacing: 0) {
-                    ItemListView(model: model, maxTextLines: 3, onDismiss: onDismiss)
+                    ItemListView(model: model, maxTextLines: EntryRowMetrics.expandedMaxTextLines, onDismiss: onDismiss)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     if isInspectorVisible {
@@ -1240,7 +1240,7 @@ private struct FilterBarView: View {
 
 private struct ItemListView: View {
     @ObservedObject var model: AppModel
-    var maxTextLines: Int = 2
+    var maxTextLines: Int = EntryRowMetrics.defaultMaxTextLines
     let onDismiss: () -> Void
 
     var body: some View {

@@ -317,7 +317,7 @@ Tools. `tests/` contains a small assertion harness and the suites:
   inspector reads from a cached presentation (counted with the background
   full-text read and carried through the cache), and a guard that the render path
   never computes a fingerprint
-- item text wrapping: Layout B's primary text wrapping to a 3-line cap while
+- item text wrapping: Layout B's primary text wrapping to a 6-line cap while
   Layout A keeps 2 lines, row heights growing with each extra wrapped line and
   returning to the compact height when the column widens again, the same height
   in light and dark appearance, and single-line secondary metadata keeping a row

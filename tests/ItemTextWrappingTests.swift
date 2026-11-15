@@ -3,7 +3,7 @@
 // ItemTextWrappingTests.swift
 //
 // Headless tests for Layout B item list primary text auto-wrapping,
-// line-limit cap (3 lines max), smooth row height adaptation,
+// line-limit cap (6 lines max), smooth row height adaptation,
 // light/dark appearance consistency, and single-line secondary metadata.
 
 import AppKit
@@ -16,22 +16,25 @@ func registerItemTextWrappingTests() {
     let sampleText1Line = "Short clip"
     let sampleText2Lines = "This entry wraps across two lines in this column."
     let sampleText3Lines = "This is a longer entry that takes three full lines of text in this column to display all content."
-    let sampleText5Lines = "This is an extremely long clipboard entry with extensive text that easily spans five or six lines when rendered in a narrow column, designed to verify that the primary text strictly caps at three lines and does not grow unboundedly, ending in an ellipsis tail truncation."
+    let sampleText6Lines = "This is a much longer clipboard entry designed to comfortably wrap across six full lines of text in this column. It provides enough prose so that all six lines are fully populated when rendered in the item list row, allowing us to accurately verify six-line scaling."
+    let sampleText10Lines = "This is an extremely long clipboard entry with extensive text that easily spans ten or twelve lines when rendered in a narrow column, designed to verify that the primary text strictly caps at six lines and does not grow unboundedly, ending in an ellipsis tail truncation. Extra sentences continue here to ensure that the unconstrained text would wrap far beyond six lines."
 
-    TestRunner.add("Primary text wrapping row height scales across 1, 2, and 3 lines in Layout B") {
+    TestRunner.add("Primary text wrapping row height scales across 1, 2, 3, and 6 lines in Layout B") {
         MainActor.assumeIsolated {
             let selection = SelectionState()
             let row1 = wrappingRow(id: 1, text: sampleText1Line)
             let row2 = wrappingRow(id: 2, text: sampleText2Lines)
             let row3 = wrappingRow(id: 3, text: sampleText3Lines)
+            let row6 = wrappingRow(id: 4, text: sampleText6Lines)
 
-            let fixture = wrappingTable(rows: [row1, row2, row3], width: 280, maxTextLines: 3, selection: selection)
+            let fixture = wrappingTable(rows: [row1, row2, row3, row6], width: 280, maxTextLines: EntryRowMetrics.expandedMaxTextLines, selection: selection)
             wrappingDrainMainQueue()
             fixture.tableView.layoutSubtreeIfNeeded()
 
             let h1 = fixture.tableView.rect(ofRow: 0).height
             let h2 = fixture.tableView.rect(ofRow: 1).height
             let h3 = fixture.tableView.rect(ofRow: 2).height
+            let h6 = fixture.tableView.rect(ofRow: 3).height
 
             expect(
                 h2 > h1 + RowHeightPolicy.tolerance,
@@ -41,50 +44,54 @@ func registerItemTextWrappingTests() {
                 h3 > h2 + RowHeightPolicy.tolerance,
                 "3-line row height (\(h3)) must be greater than 2-line row height (\(h2))"
             )
-        }
-    }
-
-    TestRunner.add("Primary text strictly caps at 3 lines in Layout B even for very long text") {
-        MainActor.assumeIsolated {
-            let selection = SelectionState()
-            let row3 = wrappingRow(id: 1, text: sampleText3Lines)
-            let row5 = wrappingRow(id: 2, text: sampleText5Lines)
-
-            let fixture = wrappingTable(rows: [row3, row5], width: 280, maxTextLines: 3, selection: selection)
-            wrappingDrainMainQueue()
-            fixture.tableView.layoutSubtreeIfNeeded()
-
-            let h3 = fixture.tableView.rect(ofRow: 0).height
-            let h5 = fixture.tableView.rect(ofRow: 1).height
-
-            // A 5-line text must be capped at 3 lines, so its row height matches the 3-line row within tolerance
-            expectEqual(
-                h5, h3, accuracy: 2.0,
-                "text exceeding 3 lines must cap at the 3-line row height (\(h3) vs \(h5))"
+            expect(
+                h6 > h3 + RowHeightPolicy.tolerance,
+                "6-line row height (\(h6)) must be greater than 3-line row height (\(h3))"
             )
         }
     }
 
-    TestRunner.add("Layout A preserves 2-line cap while Layout B allows 3-line wrapping") {
+    TestRunner.add("Primary text strictly caps at 6 lines in Layout B even for very long text") {
         MainActor.assumeIsolated {
             let selection = SelectionState()
-            let rowLong = wrappingRow(id: 1, text: sampleText3Lines)
+            let row6 = wrappingRow(id: 1, text: sampleText6Lines)
+            let row10 = wrappingRow(id: 2, text: sampleText10Lines)
+
+            let fixture = wrappingTable(rows: [row6, row10], width: 280, maxTextLines: EntryRowMetrics.expandedMaxTextLines, selection: selection)
+            wrappingDrainMainQueue()
+            fixture.tableView.layoutSubtreeIfNeeded()
+
+            let h6 = fixture.tableView.rect(ofRow: 0).height
+            let h10 = fixture.tableView.rect(ofRow: 1).height
+
+            // A 10-line text must be capped at 6 lines, so its row height matches the 6-line row within tolerance
+            expectEqual(
+                h10, h6, accuracy: 2.0,
+                "text exceeding 6 lines must cap at the 6-line row height (\(h6) vs \(h10))"
+            )
+        }
+    }
+
+    TestRunner.add("Layout A preserves 2-line cap while Layout B allows 6-line wrapping") {
+        MainActor.assumeIsolated {
+            let selection = SelectionState()
+            let rowLong = wrappingRow(id: 1, text: sampleText6Lines)
 
             // Layout A: maxTextLines = 2
-            let fixtureA = wrappingTable(rows: [rowLong], width: 280, maxTextLines: 2, selection: selection)
+            let fixtureA = wrappingTable(rows: [rowLong], width: 280, maxTextLines: EntryRowMetrics.defaultMaxTextLines, selection: selection)
             wrappingDrainMainQueue()
             fixtureA.tableView.layoutSubtreeIfNeeded()
             let heightLayoutA = fixtureA.tableView.rect(ofRow: 0).height
 
-            // Layout B: maxTextLines = 3
-            let fixtureB = wrappingTable(rows: [rowLong], width: 280, maxTextLines: 3, selection: selection)
+            // Layout B: maxTextLines = 6
+            let fixtureB = wrappingTable(rows: [rowLong], width: 280, maxTextLines: EntryRowMetrics.expandedMaxTextLines, selection: selection)
             wrappingDrainMainQueue()
             fixtureB.tableView.layoutSubtreeIfNeeded()
             let heightLayoutB = fixtureB.tableView.rect(ofRow: 0).height
 
             expect(
                 heightLayoutB > heightLayoutA + RowHeightPolicy.tolerance,
-                "Layout B 3-line row height (\(heightLayoutB)) must exceed Layout A 2-line row height (\(heightLayoutA))"
+                "Layout B 6-line row height (\(heightLayoutB)) must exceed Layout A 2-line row height (\(heightLayoutA))"
             )
         }
     }
@@ -95,7 +102,7 @@ func registerItemTextWrappingTests() {
             let row = wrappingRow(id: 1, text: sampleText3Lines)
 
             // Start at a wide column (800 pt) where text fits in 1 or 2 lines
-            let fixture = wrappingTable(rows: [row], width: 800, maxTextLines: 3, selection: selection)
+            let fixture = wrappingTable(rows: [row], width: 800, maxTextLines: EntryRowMetrics.expandedMaxTextLines, selection: selection)
             wrappingDrainMainQueue()
             fixture.tableView.layoutSubtreeIfNeeded()
             let wideHeight = fixture.tableView.rect(ofRow: 0).height
@@ -134,14 +141,14 @@ func registerItemTextWrappingTests() {
             let row = wrappingRow(id: 1, text: sampleText3Lines)
 
             // Aqua (Light)
-            let lightFixture = wrappingTable(rows: [row], width: 280, maxTextLines: 3, selection: selection)
+            let lightFixture = wrappingTable(rows: [row], width: 280, maxTextLines: EntryRowMetrics.expandedMaxTextLines, selection: selection)
             lightFixture.scrollView.appearance = NSAppearance(named: .aqua)
             wrappingDrainMainQueue()
             lightFixture.tableView.layoutSubtreeIfNeeded()
             let lightHeight = lightFixture.tableView.rect(ofRow: 0).height
 
             // DarkAqua (Dark)
-            let darkFixture = wrappingTable(rows: [row], width: 280, maxTextLines: 3, selection: selection)
+            let darkFixture = wrappingTable(rows: [row], width: 280, maxTextLines: EntryRowMetrics.expandedMaxTextLines, selection: selection)
             darkFixture.scrollView.appearance = NSAppearance(named: .darkAqua)
             wrappingDrainMainQueue()
             darkFixture.tableView.layoutSubtreeIfNeeded()
@@ -172,7 +179,7 @@ func registerItemTextWrappingTests() {
                 icon: nil
             )
 
-            let fixture = wrappingTable(rows: [row], width: 180, maxTextLines: 3, selection: selection)
+            let fixture = wrappingTable(rows: [row], width: 180, maxTextLines: EntryRowMetrics.expandedMaxTextLines, selection: selection)
             wrappingDrainMainQueue()
             fixture.tableView.layoutSubtreeIfNeeded()
 
@@ -192,7 +199,7 @@ func registerItemTextWrappingTests() {
 private func wrappingTable(
     rows: [EntryRow],
     width: CGFloat = 280,
-    maxTextLines: Int = 3,
+    maxTextLines: Int = EntryRowMetrics.expandedMaxTextLines,
     selection: SelectionState
 ) -> (scrollView: NSScrollView, tableView: EntryTableView, coordinator: EntryListView.Coordinator) {
     let listView = EntryListView(
