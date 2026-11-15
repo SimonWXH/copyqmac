@@ -825,38 +825,38 @@ func registerWindowLayoutTests() {
         expectEqual(button.isSidebarVisible, true, "button reflects visible state")
     }
 
-    TestRunner.add("sidebar toggle button styles foreground and background identically across states") {
-        var visibilityExpanded = NavigationSplitViewVisibility.all
-        let bindingExpanded = Binding(get: { visibilityExpanded }, set: { visibilityExpanded = $0 })
-        let buttonExpanded = SidebarToggleButton(columnVisibility: bindingExpanded, language: .english)
+    TestRunner.add("sidebar toggle button renders identically across states") {
+        MainActor.assumeIsolated {
+            @MainActor
+            func renderedPixels(for visibility: NavigationSplitViewVisibility) -> [UInt8]? {
+                var value = visibility
+                let binding = Binding(get: { value }, set: { value = $0 })
+                let button = SidebarToggleButton(columnVisibility: binding, language: .english)
+                let renderer = ImageRenderer(content: button)
+                renderer.scale = 2
+                guard let image = renderer.cgImage else { return nil }
+                return pixelBytes(of: image)
+            }
 
-        var visibilityCollapsed = NavigationSplitViewVisibility.detailOnly
-        let bindingCollapsed = Binding(get: { visibilityCollapsed }, set: { visibilityCollapsed = $0 })
-        let buttonCollapsed = SidebarToggleButton(columnVisibility: bindingCollapsed, language: .english)
-
-        expectEqual(buttonExpanded.isSidebarVisible, true, "expanded state reports visible")
-        expectEqual(buttonCollapsed.isSidebarVisible, false, "collapsed state reports hidden")
-
-        expectEqual(
-            buttonExpanded.currentForegroundColor,
-            buttonCollapsed.currentForegroundColor,
-            "foreground color must be identical across expanded and collapsed states"
-        )
-        expectEqual(
-            buttonExpanded.currentBackgroundColor,
-            buttonCollapsed.currentBackgroundColor,
-            "background color must be identical across expanded and collapsed states"
-        )
-        expectEqual(
-            buttonExpanded.currentForegroundColor,
-            DesignTokens.Colors.label,
-            "foreground color must be DesignTokens.Colors.label"
-        )
-        expectEqual(
-            buttonExpanded.currentBackgroundColor,
-            Color.clear,
-            "background color must be Color.clear"
-        )
+            guard let expanded = renderedPixels(for: .all),
+                  let collapsed = renderedPixels(for: .detailOnly)
+            else {
+                TestRunner.fail("could not render the sidebar toggle button")
+                return
+            }
+            expect(
+                expanded.count == collapsed.count,
+                "both states render the same number of pixels"
+            )
+            expect(
+                !expanded.allSatisfy { $0 == 0 },
+                "the render captures the actual button, not a blank image"
+            )
+            expect(
+                expanded == collapsed,
+                "the toggle button renders pixel-identically when the sidebar is expanded and collapsed"
+            )
+        }
     }
 
     TestRunner.add("sidebar toggle button sits right of the title and stays put across toggles") {
@@ -984,6 +984,29 @@ func registerWindowLayoutTests() {
             expectEqual(harness.columnVisibility, .all, "⌃⌘S expands the sidebar")
         }
     }
+}
+
+/// Normalizes a rendered image into a fixed-format RGBA byte buffer so two
+/// renders can be compared pixel-for-pixel.
+private func pixelBytes(of image: CGImage) -> [UInt8]? {
+    let width = image.width
+    let height = image.height
+    guard width > 0, height > 0,
+          let space = CGColorSpace(name: CGColorSpace.sRGB),
+          let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: space,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+          )
+    else { return nil }
+    context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+    guard let pointer = context.data?.bindMemory(to: UInt8.self, capacity: width * height * 4) else { return nil }
+    let buffer = UnsafeBufferPointer(start: pointer, count: width * height * 4)
+    return [UInt8](buffer)
 }
 
 // MARK: - Divider event harness

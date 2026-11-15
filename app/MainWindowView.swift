@@ -139,9 +139,6 @@ struct SidebarToggleButton: View {
     /// Background color for the toggle icon in any sidebar visibility state.
     static let iconBackgroundColor = Color.clear
 
-    var currentForegroundColor: Color { Self.iconForegroundColor }
-    var currentBackgroundColor: Color { Self.iconBackgroundColor }
-
     func toggle() {
         columnVisibility = isSidebarVisible ? .detailOnly : .all
     }

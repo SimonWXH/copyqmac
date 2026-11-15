@@ -188,8 +188,8 @@ func registerSidebarWidthTests() {
     // MARK: - Debouncer Timing and AppModel Integration
 
     TestRunner.add("SidebarWidthDebouncer coalesces rapid events and commits after delay") {
+        var committed: [Double] = []
         MainActor.assumeIsolated {
-            var committed: [Double] = []
             let debouncer = SidebarWidthDebouncer(delay: .milliseconds(40))
 
             debouncer.handleWidthChange(
@@ -216,28 +216,30 @@ func registerSidebarWidthTests() {
             ) { width in
                 committed.append(width)
             }
-
-            // Pump briefly: delay (40ms) has not elapsed yet
-            let start = Date()
-            while Date().timeIntervalSince(start) < 0.015 {
-                _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.005))
-            }
-            expectEqual(committed.isEmpty, true, "no commit occurs before debounce interval elapses")
-
-            // Wait past the debounce delay
-            let deadline = Date().addingTimeInterval(0.08)
-            while Date() < deadline {
-                _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
-            }
-
-            expectEqual(committed.count, 1, "exactly one commit occurs")
-            expectEqual(committed.first, 290, "the latest dragged width was committed")
         }
+
+        // Pump briefly: delay (40ms) has not elapsed yet. The commit runs as
+        // a MainActor task, so the run loop must be pumped outside the
+        // isolated block above for it to run at all.
+        let start = Date()
+        while Date().timeIntervalSince(start) < 0.015 {
+            _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.005))
+        }
+        expectEqual(committed.isEmpty, true, "no commit occurs before debounce interval elapses")
+
+        // Wait past the debounce delay
+        let deadline = Date().addingTimeInterval(1.0)
+        while Date() < deadline && committed.isEmpty {
+            _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
+
+        expectEqual(committed.count, 1, "exactly one commit occurs")
+        expectEqual(committed.first, 290, "the latest dragged width was committed")
     }
 
     TestRunner.add("SidebarWidthDebouncer cancels commit when sidebar collapses before delay") {
+        var committed: [Double] = []
         MainActor.assumeIsolated {
-            var committed: [Double] = []
             let debouncer = SidebarWidthDebouncer(delay: .milliseconds(40))
 
             debouncer.handleWidthChange(
@@ -256,24 +258,28 @@ func registerSidebarWidthTests() {
             ) { width in
                 committed.append(width)
             }
-
-            // Wait past the debounce delay
-            let deadline = Date().addingTimeInterval(0.08)
-            while Date() < deadline {
-                _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
-            }
-
-            expectEqual(committed.isEmpty, true, "collapsing cancels pending commit")
         }
+
+        // The commit runs as a MainActor task, so the run loop must be pumped
+        // outside the isolated block above for it to run at all.
+        let deadline = Date().addingTimeInterval(0.3)
+        while Date() < deadline && committed.isEmpty {
+            _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
+
+        expectEqual(committed.isEmpty, true, "collapsing cancels pending commit")
     }
 
     TestRunner.add("SidebarWidthDebouncer commits new width to AppModel and persists in store") {
-        MainActor.assumeIsolated {
-            do {
-                let store = try ClipboardStore(inMemory: true)
+        do {
+            let store = try ClipboardStore(inMemory: true)
+            var committed = false
+            var appModel: AppModel?
+            try MainActor.assumeIsolated {
                 let history = ClipboardHistory(store: store)
                 _ = try history.defaultTab()
                 let model = AppModel(history: history)
+                appModel = model
                 model.bootstrap()
 
                 expectEqual(model.preferences.sidebarWidth, 200)
@@ -286,21 +292,35 @@ func registerSidebarWidthTests() {
                     currentStoredWidth: model.preferences.sidebarWidth
                 ) { newWidth in
                     model.updatePreferences { $0.sidebarWidth = newWidth }
+                    committed = true
                 }
+            }
 
-                // Wait past debounce
-                let deadline = Date().addingTimeInterval(0.07)
-                while Date() < deadline {
-                    _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
+            // The debounced commit runs as a MainActor task, which can only
+            // execute while the main actor is free, so the run loop has to be
+            // pumped outside the isolated block above.
+            let deadline = Date().addingTimeInterval(1.0)
+            while Date() < deadline && !committed {
+                _ = RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.01))
+            }
+
+            MainActor.assumeIsolated {
+                guard let model = appModel else {
+                    TestRunner.fail("the model was not created")
+                    return
                 }
-
+                expectEqual(committed, true, "the debounced commit fired")
                 expectEqual(model.preferences.sidebarWidth, 275, "model preferences updated with committed width")
 
-                let reloaded = try store.preferences()
-                expectEqual(reloaded.sidebarWidth, 275, "store persisted the new sidebar width")
-            } catch {
-                TestRunner.fail("threw \(error)")
+                do {
+                    let reloaded = try store.preferences()
+                    expectEqual(reloaded.sidebarWidth, 275, "store persisted the new sidebar width")
+                } catch {
+                    TestRunner.fail("threw \(error)")
+                }
             }
+        } catch {
+            TestRunner.fail("threw \(error)")
         }
     }
 }
