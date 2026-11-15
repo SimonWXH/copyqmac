@@ -137,9 +137,9 @@ public enum InspectorSplitLayout {
 public enum SidebarLayout {
     public static let defaultWidth: Double = 200
     public static let minWidth: Double = 160
-    public static let maxWidth: Double = 420
+    public static let maxWidth: Double = 260
 
-    /// Clamps a sidebar width to the allowed 160...420 range.
+    /// Clamps a sidebar width to the allowed 160...260 range.
     public static func clampWidth(_ width: Double) -> Double {
         min(max(width, minWidth), maxWidth)
     }
@@ -228,7 +228,7 @@ public struct Preferences: Codable, Equatable, Sendable {
     private var legacyWindowLayout: String?
     /// Ratio of the inspector height allocated to the preview pane (0.20...0.80). Defaults to 0.55.
     public var inspectorSplitRatio: Double
-    /// Width of the sidebar column in Layout B (160...420 pt). Defaults to 200.
+    /// Width of the sidebar column in Layout B (160...260 pt). Defaults to 200.
     public var sidebarWidth: Double
 
     private enum CodingKeys: String, CodingKey {

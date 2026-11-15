@@ -12,10 +12,10 @@ func registerSidebarWidthTests() {
 
     // MARK: - Clamping and Constraints
 
-    TestRunner.add("SidebarLayout clamping enforces 160...420 range") {
+    TestRunner.add("SidebarLayout clamping enforces 160...260 range") {
         expectEqual(SidebarLayout.defaultWidth, 200)
         expectEqual(SidebarLayout.minWidth, 160)
-        expectEqual(SidebarLayout.maxWidth, 420)
+        expectEqual(SidebarLayout.maxWidth, 260)
 
         // Below minimum
         expectEqual(SidebarLayout.clampWidth(159), 160)
@@ -24,15 +24,15 @@ func registerSidebarWidthTests() {
         expectEqual(SidebarLayout.clampWidth(-50), 160)
 
         // Above maximum
-        expectEqual(SidebarLayout.clampWidth(421), 420)
-        expectEqual(SidebarLayout.clampWidth(500), 420)
-        expectEqual(SidebarLayout.clampWidth(1000), 420)
+        expectEqual(SidebarLayout.clampWidth(261), 260)
+        expectEqual(SidebarLayout.clampWidth(500), 260)
+        expectEqual(SidebarLayout.clampWidth(1000), 260)
 
         // In range
         expectEqual(SidebarLayout.clampWidth(160), 160)
         expectEqual(SidebarLayout.clampWidth(200), 200)
-        expectEqual(SidebarLayout.clampWidth(315.5), 315.5)
-        expectEqual(SidebarLayout.clampWidth(420), 420)
+        expectEqual(SidebarLayout.clampWidth(255.5), 255.5)
+        expectEqual(SidebarLayout.clampWidth(260), 260)
     }
 
     // MARK: - Preferences Default & Serialization
@@ -55,11 +55,11 @@ func registerSidebarWidthTests() {
 
         let jsonHigh = #"{"sidebarWidth":750.0}"#
         let decodedHigh = try JSONDecoder().decode(Preferences.self, from: Data(jsonHigh.utf8))
-        expectEqual(decodedHigh.sidebarWidth, 420, "above-maximum width is clamped to 420")
+        expectEqual(decodedHigh.sidebarWidth, 260, "above-maximum width is clamped to 260")
 
-        let jsonValid = #"{"sidebarWidth":320.0}"#
+        let jsonValid = #"{"sidebarWidth":220.0}"#
         let decodedValid = try JSONDecoder().decode(Preferences.self, from: Data(jsonValid.utf8))
-        expectEqual(decodedValid.sidebarWidth, 320, "valid width is preserved")
+        expectEqual(decodedValid.sidebarWidth, 220, "valid width is preserved")
     }
 
     TestRunner.add("sidebarWidth survives store round-trip") {
@@ -67,11 +67,11 @@ func registerSidebarWidthTests() {
         var prefs = try store.preferences()
         expectEqual(prefs.sidebarWidth, 200, "fresh store defaults to 200")
 
-        prefs.sidebarWidth = 310
+        prefs.sidebarWidth = 240
         try store.setPreferences(prefs)
 
         let reloaded = try store.preferences()
-        expectEqual(reloaded.sidebarWidth, 310, "persisted sidebarWidth is restored")
+        expectEqual(reloaded.sidebarWidth, 240, "persisted sidebarWidth is restored")
 
         prefs.sidebarWidth = 175
         try store.setPreferences(prefs)
@@ -84,7 +84,7 @@ func registerSidebarWidthTests() {
         var prefs = Preferences.defaultValue
         prefs.sidebarWidth = 999
         let sanitizedHigh = prefs.sanitized()
-        expectEqual(sanitizedHigh.sidebarWidth, 420)
+        expectEqual(sanitizedHigh.sidebarWidth, 260)
 
         prefs.sidebarWidth = 20
         let sanitizedLow = prefs.sanitized()
@@ -160,7 +160,7 @@ func registerSidebarWidthTests() {
             draft.record(measuredWidth: 500, isCollapsed: false, currentStoredWidth: 200),
             "oversized drag schedules write"
         )
-        expectEqual(draft.takeCommit(), 420, "oversized drag is clamped to max width 420")
+        expectEqual(draft.takeCommit(), 260, "oversized drag is clamped to max width 260")
     }
 
     TestRunner.add("SidebarWidthDraft keeps only the latest dragged width") {
@@ -168,16 +168,16 @@ func registerSidebarWidthTests() {
 
         expect(draft.record(measuredWidth: 220, isCollapsed: false, currentStoredWidth: 200))
         expect(draft.record(measuredWidth: 245, isCollapsed: false, currentStoredWidth: 200))
-        expect(draft.record(measuredWidth: 310, isCollapsed: false, currentStoredWidth: 200))
+        expect(draft.record(measuredWidth: 255, isCollapsed: false, currentStoredWidth: 200))
 
-        expectEqual(draft.takeCommit(), 310, "last dragged width wins")
+        expectEqual(draft.takeCommit(), 255, "last dragged width wins")
         expectNil(draft.takeCommit())
     }
 
     TestRunner.add("SidebarWidthDraft cancel clears any pending commit") {
         var draft = SidebarWidthDraft()
 
-        expect(draft.record(measuredWidth: 280, isCollapsed: false, currentStoredWidth: 200))
+        expect(draft.record(measuredWidth: 250, isCollapsed: false, currentStoredWidth: 200))
         expectEqual(draft.hasPendingCommit, true)
 
         draft.cancel()
@@ -202,7 +202,7 @@ func registerSidebarWidthTests() {
 
             // Rapid drag continued before delay expires
             debouncer.handleWidthChange(
-                measuredWidth: 250,
+                measuredWidth: 240,
                 isCollapsed: false,
                 currentStoredWidth: 200
             ) { width in
@@ -210,7 +210,7 @@ func registerSidebarWidthTests() {
             }
 
             debouncer.handleWidthChange(
-                measuredWidth: 290,
+                measuredWidth: 250,
                 isCollapsed: false,
                 currentStoredWidth: 200
             ) { width in
@@ -234,7 +234,7 @@ func registerSidebarWidthTests() {
         }
 
         expectEqual(committed.count, 1, "exactly one commit occurs")
-        expectEqual(committed.first, 290, "the latest dragged width was committed")
+        expectEqual(committed.first, 250, "the latest dragged width was committed")
     }
 
     TestRunner.add("SidebarWidthDebouncer cancels commit when sidebar collapses before delay") {
@@ -287,7 +287,7 @@ func registerSidebarWidthTests() {
                 let debouncer = SidebarWidthDebouncer(delay: .milliseconds(30))
 
                 debouncer.handleWidthChange(
-                    measuredWidth: 275,
+                    measuredWidth: 250,
                     isCollapsed: false,
                     currentStoredWidth: model.preferences.sidebarWidth
                 ) { newWidth in
@@ -310,11 +310,11 @@ func registerSidebarWidthTests() {
                     return
                 }
                 expectEqual(committed, true, "the debounced commit fired")
-                expectEqual(model.preferences.sidebarWidth, 275, "model preferences updated with committed width")
+                expectEqual(model.preferences.sidebarWidth, 250, "model preferences updated with committed width")
 
                 do {
                     let reloaded = try store.preferences()
-                    expectEqual(reloaded.sidebarWidth, 275, "store persisted the new sidebar width")
+                    expectEqual(reloaded.sidebarWidth, 250, "store persisted the new sidebar width")
                 } catch {
                     TestRunner.fail("threw \(error)")
                 }
