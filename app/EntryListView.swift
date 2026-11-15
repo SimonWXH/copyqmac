@@ -199,7 +199,7 @@ private struct EntryRowContent: View {
             Spacer(minLength: DesignTokens.Spacing.xSmall)
 
             if isHovering {
-                GlassActionButton(
+                HoverActionButton(
                     systemImage: row.pinned ? "pin.slash" : "pin",
                     help: Localization.string(
                         row.pinned ? .menuItemUnpin : .menuItemPin,
@@ -208,7 +208,7 @@ private struct EntryRowContent: View {
                 ) {
                     actions.togglePin(row.id)
                 }
-                GlassActionButton(
+                HoverActionButton(
                     systemImage: "trash",
                     help: Localization.string(.rowDeleteHelp, language: language)
                 ) {

@@ -1,4 +1,5 @@
-// Design tokens: semantic colours, spacing scale, radius hierarchy, and typography.
+// Design tokens: semantic colours, spacing scale, radius hierarchy, typography,
+// and the shared hover button style.
 
 import AppKit
 import SwiftUI
@@ -17,6 +18,29 @@ public enum DesignTokens {
         public static let destructive = Color.red
         /// Attention accent for notices, pinned items, and permission reminders.
         public static let notice = Color.orange
+        /// Dynamic NSColor for unified button hover feedback.
+        public static let hoverNSColor = NSColor(name: nil) { appearance in
+            let match = appearance.bestMatch(from: [.darkAqua, .aqua])
+            if match == .darkAqua {
+                return NSColor.labelColor.withAlphaComponent(0.10)
+            } else {
+                return NSColor.labelColor.withAlphaComponent(0.07)
+            }
+        }
+        /// Neutral hover feedback colour (label at ~7% opacity in light mode, ~10% in dark mode).
+        public static let hover = Color(nsColor: hoverNSColor)
+
+        /// Dynamic NSColor for pressed button feedback.
+        public static let hoverPressedNSColor = NSColor(name: nil) { appearance in
+            let match = appearance.bestMatch(from: [.darkAqua, .aqua])
+            if match == .darkAqua {
+                return NSColor.labelColor.withAlphaComponent(0.16)
+            } else {
+                return NSColor.labelColor.withAlphaComponent(0.12)
+            }
+        }
+        /// Pressed feedback colour (slightly darker shade of the hover colour).
+        public static let hoverPressed = Color(nsColor: hoverPressedNSColor)
     }
 
     // MARK: - Spacing Scale
@@ -124,5 +148,68 @@ extension AppTheme {
         case .dark:
             return increaseContrast ? .accessibilityHighContrastDarkAqua : .darkAqua
         }
+    }
+}
+
+// MARK: - Hover Button Style
+
+/// A button style providing neutral hover and pressed background feedback.
+public struct HoverButtonStyle: ButtonStyle {
+    public init() {}
+
+    /// Resolves the background colour for the given hover, pressed, and enabled state.
+    public static func backgroundColor(
+        isHovering: Bool,
+        isPressed: Bool,
+        isEnabled: Bool = true
+    ) -> Color {
+        guard isEnabled else { return Color.clear }
+        if isPressed {
+            return DesignTokens.Colors.hoverPressed
+        } else if isHovering {
+            return DesignTokens.Colors.hover
+        } else {
+            return Color.clear
+        }
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        HoverButtonBody(configuration: configuration)
+    }
+
+    private struct HoverButtonBody: View {
+        let configuration: Configuration
+
+        @Environment(\.isEnabled) private var isEnabled
+        @State private var isHovering = false
+
+        var body: some View {
+            configuration.label
+                .background(
+                    RoundedRectangle(cornerRadius: DesignTokens.Radius.tag, style: .continuous)
+                        .fill(HoverButtonStyle.backgroundColor(
+                            isHovering: isHovering,
+                            isPressed: configuration.isPressed,
+                            isEnabled: isEnabled
+                        ))
+                )
+                .contentShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.tag, style: .continuous))
+                .onHover { hovering in
+                    guard isEnabled else {
+                        if isHovering { isHovering = false }
+                        return
+                    }
+                    isHovering = hovering
+                }
+                .animation(.easeInOut(duration: 0.12), value: isHovering)
+                .animation(.easeInOut(duration: 0.08), value: configuration.isPressed)
+        }
+    }
+}
+
+extension ButtonStyle where Self == HoverButtonStyle {
+    /// Unified hover button style using `DesignTokens.Radius.tag`.
+    public static var hover: HoverButtonStyle {
+        HoverButtonStyle()
     }
 }

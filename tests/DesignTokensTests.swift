@@ -2,6 +2,7 @@
 
 import AppKit
 import Foundation
+import SwiftUI
 
 func registerDesignTokensTests() {
     TestRunner.currentSuite = "DesignTokens"
@@ -89,6 +90,88 @@ func registerDesignTokensTests() {
             manager.apply(theme: .system, to: window)
             expectNil(window.appearance)
             expectNil(NSApp.appearance)
+        }
+    }
+
+    TestRunner.add("hover colour resolves expected alpha for light and dark appearance") {
+        let aqua = try unwrap(NSAppearance(named: .aqua))
+        let darkAqua = try unwrap(NSAppearance(named: .darkAqua))
+
+        var lightHoverAlpha: CGFloat = -1
+        var lightPressedAlpha: CGFloat = -1
+        aqua.performAsCurrentDrawingAppearance {
+            lightHoverAlpha = DesignTokens.Colors.hoverNSColor.usingColorSpace(.deviceRGB)?.alphaComponent ?? -1
+            lightPressedAlpha = DesignTokens.Colors.hoverPressedNSColor.usingColorSpace(.deviceRGB)?.alphaComponent ?? -1
+        }
+
+        var darkHoverAlpha: CGFloat = -1
+        var darkPressedAlpha: CGFloat = -1
+        darkAqua.performAsCurrentDrawingAppearance {
+            darkHoverAlpha = DesignTokens.Colors.hoverNSColor.usingColorSpace(.deviceRGB)?.alphaComponent ?? -1
+            darkPressedAlpha = DesignTokens.Colors.hoverPressedNSColor.usingColorSpace(.deviceRGB)?.alphaComponent ?? -1
+        }
+
+        // Light appearance: label opacity in the 6-8% range (0.07)
+        expect(lightHoverAlpha >= 0.06 && lightHoverAlpha <= 0.08, "light hover alpha should be 6-8%")
+        expectEqual(Double(lightHoverAlpha), 0.07, accuracy: 0.005)
+        // Light pressed: deeper tone (0.12)
+        expect(lightPressedAlpha > lightHoverAlpha, "light pressed alpha should be deeper than hover")
+        expectEqual(Double(lightPressedAlpha), 0.12, accuracy: 0.005)
+
+        // Dark appearance: adjusted for dark mode (~10%)
+        expect(darkHoverAlpha >= 0.09 && darkHoverAlpha <= 0.11, "dark hover alpha should be ~10%")
+        expectEqual(Double(darkHoverAlpha), 0.10, accuracy: 0.005)
+        // Dark pressed: deeper tone (0.16)
+        expect(darkPressedAlpha > darkHoverAlpha, "dark pressed alpha should be deeper than hover")
+        expectEqual(Double(darkPressedAlpha), 0.16, accuracy: 0.005)
+    }
+
+    TestRunner.add("hover button style background colour responds to hover, pressed, and disabled states") {
+        // Unhovered and unpressed -> transparent (Color.clear)
+        expectEqual(
+            HoverButtonStyle.backgroundColor(isHovering: false, isPressed: false),
+            Color.clear
+        )
+        // Hovered -> DesignTokens.Colors.hover
+        expectEqual(
+            HoverButtonStyle.backgroundColor(isHovering: true, isPressed: false),
+            DesignTokens.Colors.hover
+        )
+        // Pressed -> DesignTokens.Colors.hoverPressed (deeper)
+        expectEqual(
+            HoverButtonStyle.backgroundColor(isHovering: true, isPressed: true),
+            DesignTokens.Colors.hoverPressed
+        )
+        expectEqual(
+            HoverButtonStyle.backgroundColor(isHovering: false, isPressed: true),
+            DesignTokens.Colors.hoverPressed
+        )
+        // Disabled -> always transparent
+        expectEqual(
+            HoverButtonStyle.backgroundColor(isHovering: true, isPressed: false, isEnabled: false),
+            Color.clear
+        )
+        expectEqual(
+            HoverButtonStyle.backgroundColor(isHovering: false, isPressed: true, isEnabled: false),
+            Color.clear
+        )
+    }
+
+    TestRunner.add("unhovered hover-style button renders a transparent background") {
+        try MainActor.assumeIsolated {
+            let label = Color.clear.frame(width: 40, height: 20)
+
+            // Unhovered: background is clear, so rendered pixel alpha at the center is 0.0
+            let unhoveredButton = Button(action: {}, label: { label })
+                .buttonStyle(.hover)
+            let rendererUnhovered = ImageRenderer(content: unhoveredButton)
+            let imageUnhovered = try unwrap(rendererUnhovered.nsImage)
+            let repUnhovered = try unwrap(NSBitmapImageRep(data: try unwrap(imageUnhovered.tiffRepresentation)))
+            let unhoveredAlpha = repUnhovered.colorAt(
+                x: repUnhovered.pixelsWide / 2,
+                y: repUnhovered.pixelsHigh / 2
+            )?.alphaComponent ?? -1
+            expectEqual(Double(unhoveredAlpha), 0.0, accuracy: 0.001, "unhovered background should be transparent")
         }
     }
 }

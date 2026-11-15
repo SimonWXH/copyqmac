@@ -519,7 +519,7 @@ private struct IgnoredAppsPreferences: View {
                         } label: {
                             Image(systemName: "trash")
                         }
-                        .buttonStyle(.borderless)
+                        .buttonStyle(.hover)
                         .help(Localization.format(.settingsRemoveAppHelp, language: lang, rule.name))
                     }
                 }
@@ -690,13 +690,13 @@ struct TabSettingsRow: View {
                 }
                 Spacer()
                 Button(Localization.string(.settingsTabRenameButton, language: lang), action: onRename)
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.hover)
                 Button {
                     model.removeTab(tab)
                 } label: {
                     Image(systemName: "trash")
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.hover)
                 .disabled(model.tabs.count <= 1)
                 .help(Localization.string(.settingsTabRemoveHelp, language: lang))
             }
