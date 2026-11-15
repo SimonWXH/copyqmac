@@ -27,7 +27,7 @@ extension View {
     }
 }
 
-/// Small icon button that uses the system glass button style.
+/// Small icon button that uses the unified hover button style.
 struct GlassActionButton: View {
     let systemImage: String
     let help: String
@@ -35,9 +35,10 @@ struct GlassActionButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemImage).frame(width: 14, height: 14)
+            Image(systemName: systemImage)
+                .frame(width: 18, height: 18)
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.hover)
         .help(help)
     }
 }

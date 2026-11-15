@@ -153,7 +153,7 @@ struct SidebarToggleButton: View {
                         .fill(isSidebarVisible ? DesignTokens.Colors.selection.opacity(0.12) : Color.clear)
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hover)
         .keyboardShortcut("s", modifiers: [.control, .command])
         .help(Localization.string(.sidebarToggleHelp, language: language))
         .accessibilityIdentifier("SidebarToggleButton")
@@ -251,9 +251,11 @@ struct LayoutBView: View {
                             Button {
                                 model.searchText = ""
                             } label: {
-                                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 18, height: 18)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.hover)
                             .help(Localization.string(.filterClearHelp, language: lang))
                         }
                     }
@@ -303,7 +305,7 @@ struct LayoutBView: View {
                                     .fill(isInspectorVisible ? DesignTokens.Colors.selection.opacity(0.12) : Color.clear)
                             )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hover)
                     .keyboardShortcut("i", modifiers: [.command, .option])
                     .help(Localization.string(.inspectorToggleHelp, language: lang))
                 }
@@ -1022,9 +1024,11 @@ private struct FilterBarView: View {
                 Button {
                     model.searchText = ""
                 } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18, height: 18)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hover)
                 .help(Localization.string(.filterClearHelp, language: lang))
             }
             Spacer(minLength: DesignTokens.Spacing.medium)
@@ -1307,8 +1311,10 @@ private struct StatusBarView: View {
                     Label(failure, systemImage: "exclamationmark.triangle.fill")
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .padding(.horizontal, DesignTokens.Spacing.xSmall)
+                        .padding(.vertical, DesignTokens.Spacing.xxSmall)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hover)
                 .foregroundStyle(DesignTokens.Colors.destructive)
                 .help(Localization.format(.statusBarDismissTooltip, language: lang, failure))
             }
@@ -1325,8 +1331,10 @@ private struct StatusBarView: View {
                         systemImage: "lock.shield"
                     )
                     .lineLimit(1)
+                    .padding(.horizontal, DesignTokens.Spacing.xSmall)
+                    .padding(.vertical, DesignTokens.Spacing.xxSmall)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hover)
                 .foregroundStyle(DesignTokens.Colors.notice)
                 .help(Localization.string(.statusBarAccessibilityHelp, language: lang))
             }
@@ -1550,9 +1558,9 @@ private struct RichTextToolbar: View {
                 controller.applyDefaultColor()
             } label: {
                 Image(systemName: "xmark")
-                    .frame(width: 16, height: 16)
+                    .frame(width: 18, height: 18)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.hover)
             .tint(.primary)
             .help(Localization.string(.richToolbarDefaultColour, language: language))
 
@@ -1589,15 +1597,15 @@ private struct RichTextToolbar: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .frame(width: 18, height: 18)
+                .background(
+                    RoundedRectangle(cornerRadius: DesignTokens.Radius.tag, style: .continuous)
+                        .fill(isOn ? DesignTokens.Colors.selection.opacity(0.16) : Color.clear)
+                )
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.hover)
         // A tint keeps the glyph legible on the glass surface; a foreground
         // style lets SwiftUI draw a vibrant image that disappears there.
         .tint(isOn ? DesignTokens.Colors.selection : DesignTokens.Colors.label)
-        .background(
-            RoundedRectangle(cornerRadius: DesignTokens.Radius.tag, style: .continuous)
-                .fill(isOn ? DesignTokens.Colors.selection.opacity(0.16) : Color.clear)
-        )
         .help(help)
     }
 
