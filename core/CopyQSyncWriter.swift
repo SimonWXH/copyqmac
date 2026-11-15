@@ -186,26 +186,39 @@ public final class CopyQSyncWriter: @unchecked Sendable {
     /// aside, and only then are the staged files renamed into place. The
     /// temporary names make the group incomplete while it is being swapped, and
     /// a failure restores the previous group and removes every temporary file,
-    /// so the folder never holds a mix of an old and a new group.
+    /// so the folder never holds a mix of an old and a new group.  A caller
+    /// that keeps superseded files leaves every pre-existing file alone: no
+    /// leftover is cleaned up, and staging and backup names are chosen so
+    /// nothing already in the folder is overwritten or moved.
     private func installGroup(
         _ files: [String: Data],
         stem: String,
         in directory: URL,
         replacing previousNames: [String],
+        keepSupersededFiles: Bool = false,
         fileManager: FileManager
     ) throws -> [SyncWrittenFile] {
         func url(_ name: String) -> URL {
             directory.appendingPathComponent(name)
         }
-        for name in (try? fileManager.contentsOfDirectory(atPath: directory.path)) ?? []
-            where isInterruptedInstallFile(name, stem: stem) {
-            try? fileManager.removeItem(at: url(name))
+        if !keepSupersededFiles {
+            for name in (try? fileManager.contentsOfDirectory(atPath: directory.path)) ?? []
+                where isInterruptedInstallFile(name, stem: stem) {
+                try? fileManager.removeItem(at: url(name))
+            }
         }
-        let staged = files.keys.sorted().map { (suffix: $0, name: stem + $0 + ".tmp") }
+        let staged = files.keys.sorted().map { suffix in
+            (suffix: suffix, name: uniqueInstallName(
+                for: stem + suffix + ".tmp",
+                keepSupersededFiles: keepSupersededFiles,
+                in: directory,
+                fileManager: fileManager
+            ))
+        }
 
         do {
-            for (suffix, data) in files {
-                try data.write(to: url(stem + suffix + ".tmp"))
+            for entry in staged {
+                try files[entry.suffix]!.write(to: url(entry.name))
             }
         } catch {
             for entry in staged {
@@ -218,8 +231,15 @@ public final class CopyQSyncWriter: @unchecked Sendable {
         var installed: [String] = []
         do {
             for name in previousNames.sorted() {
-                let backup = name + ".bak"
-                try? fileManager.removeItem(at: url(backup))
+                let backup = uniqueInstallName(
+                    for: name + ".bak",
+                    keepSupersededFiles: keepSupersededFiles,
+                    in: directory,
+                    fileManager: fileManager
+                )
+                if !keepSupersededFiles {
+                    try? fileManager.removeItem(at: url(backup))
+                }
                 try fileManager.moveItem(at: url(name), to: url(backup))
                 backups.append((backup, name))
             }
@@ -262,6 +282,24 @@ public final class CopyQSyncWriter: @unchecked Sendable {
             return false
         }
         return CopyQSyncWatcher.itemStem(ofFileName: base) == stem
+    }
+
+    /// The install name to use: the default name when existing files may be
+    /// replaced, otherwise a variant no file in the folder already holds.
+    private func uniqueInstallName(
+        for defaultName: String,
+        keepSupersededFiles: Bool,
+        in directory: URL,
+        fileManager: FileManager
+    ) -> String {
+        guard keepSupersededFiles else { return defaultName }
+        var candidate = defaultName
+        var index = 0
+        while fileManager.fileExists(atPath: directory.appendingPathComponent(candidate).path) {
+            index += 1
+            candidate = "\(defaultName).\(index)"
+        }
+        return candidate
     }
 
     /// Synchronously writes a newly captured entry into its mapped sync folder.
@@ -558,6 +596,7 @@ public final class CopyQSyncWriter: @unchecked Sendable {
                 stem: stem,
                 in: dirURL,
                 replacing: previousNames,
+                keepSupersededFiles: keepSupersededFiles,
                 fileManager: fileManager
             )
         } catch {

@@ -470,6 +470,60 @@ func registerCopyQSyncRestoreTests() {
         }
     }
 
+    TestRunner.add("a written stem keeps pre-existing staging and backup leftovers") {
+        do {
+            let paths = try scratch()
+            defer { try? FileManager.default.removeItem(at: paths.root) }
+
+            let (store, tab) = try makeStore(folder: paths.sync)
+            let createdAt = Date(timeIntervalSince1970: 1_780_000_700)
+            let stem = CopyQSyncBridge.formatTimestamp(createdAt)
+            let entry = try store.insert(ClipboardEntry(
+                createdAt: createdAt,
+                tabID: tab.id,
+                flavours: [Fixtures.text("local version")]
+            ))
+            try store.recordWrittenSyncStem(stem, folder: paths.sync.path, entryID: entry.id)
+
+            let leftovers = [stem + ".txt.bak", stem + ".txt.tmp"]
+            for (index, name) in leftovers.enumerated() {
+                try Data("leftover \(index)".utf8)
+                    .write(to: paths.sync.appendingPathComponent(name))
+            }
+            try Data("folder version".utf8)
+                .write(to: paths.sync.appendingPathComponent(stem + ".txt"))
+
+            let plan = try CopyQSyncRestore.plan(tabID: tab.id, in: store)
+            expectEqual(plan.entryCount, 1, "the row is still written")
+
+            let result = try CopyQSyncRestore.apply(
+                plan,
+                in: store,
+                writer: makeWriter(in: paths.root)
+            )
+            expectEqual(result.entriesWritten, 1, "the row is written")
+            expectEqual(
+                try Data(contentsOf: paths.sync.appendingPathComponent(stem + ".txt")),
+                Data("local version".utf8),
+                "the local version is written"
+            )
+            for (index, name) in leftovers.enumerated() {
+                expectEqual(
+                    try Data(contentsOf: paths.sync.appendingPathComponent(name)),
+                    Data("leftover \(index)".utf8),
+                    "the leftover \(name) keeps its exact bytes"
+                )
+            }
+            expectEqual(
+                Set(try fileNames(paths.sync)),
+                Set(leftovers + [stem + ".txt"]),
+                "no leftover is removed, renamed, or replaced and nothing else appears"
+            )
+        } catch {
+            TestRunner.fail("threw \(error)")
+        }
+    }
+
     TestRunner.add("every written stem is recorded for its row and a repeat writes no duplicate") {
         do {
             let paths = try scratch()
