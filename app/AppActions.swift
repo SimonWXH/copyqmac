@@ -350,14 +350,26 @@ final class AppActions: NSObject, NSMenuItemValidation {
         }
         guard canWrite, alertPresenter(alert) == .alertSecondButtonReturn else { return }
 
-        do {
-            let result = try model.applyWriteBack(plan)
-            windowController?.show()
-            model.showNotice([result.summary(language: language)] + Array(result.failures.prefix(3)))
-        } catch {
-            model.reportFailure(
-                "Could not write the tab's items back to its sync folder: \(error.localizedDescription)"
-            )
+        let store = model.history.store
+        let writer = model.syncWriter
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let outcome = Result {
+                try CopyQSyncRestore.apply(plan, in: store, writer: writer)
+            }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                switch outcome {
+                case .success(let result):
+                    self.windowController?.show()
+                    self.model.showNotice(
+                        [result.summary(language: language)] + Array(result.failures.prefix(3))
+                    )
+                case .failure(let error):
+                    self.model.reportFailure(
+                        "Could not write the tab's items back to its sync folder: \(error.localizedDescription)"
+                    )
+                }
+            }
         }
     }
 

@@ -485,7 +485,12 @@ func registerCopyQSyncRestoreTests() {
             ))
             try store.recordWrittenSyncStem(stem, folder: paths.sync.path, entryID: entry.id)
 
-            let leftovers = [stem + ".txt.bak", stem + ".txt.tmp"]
+            let leftovers = [
+                stem + ".txt.bak",
+                stem + ".txt.bak.1",
+                stem + ".txt.tmp",
+                stem + ".txt.tmp.1",
+            ]
             for (index, name) in leftovers.enumerated() {
                 try Data("leftover \(index)".utf8)
                     .write(to: paths.sync.appendingPathComponent(name))
@@ -495,10 +500,10 @@ func registerCopyQSyncRestoreTests() {
 
             let plan = try CopyQSyncRestore.plan(tabID: tab.id, in: store)
             expectEqual(plan.entryCount, 1, "the row is still written")
-            expectEqual(plan.rows.first?.filesKept, leftovers, "the plan names both leftovers as kept")
+            expectEqual(plan.rows.first?.filesKept, leftovers, "the plan names every leftover as kept")
             let english = plan.confirmation(language: .english)
             expect(
-                english.contains("Left in place: 2 files are already in the folder"),
+                english.contains("Left in place: 4 files are already in the folder"),
                 "the confirmation states the kept leftovers: \(english)"
             )
             for name in leftovers {
@@ -514,9 +519,9 @@ func registerCopyQSyncRestoreTests() {
                 writer: makeWriter(in: paths.root)
             )
             expectEqual(result.entriesWritten, 1, "the row is written")
-            expectEqual(result.filesKept, leftovers, "the result names both leftovers as kept")
+            expectEqual(result.filesKept, leftovers, "the result names every leftover as kept")
             expect(
-                result.summary(language: .english).contains("left 2 existing files in place"),
+                result.summary(language: .english).contains("left 4 existing files in place"),
                 "the summary reports the kept leftovers: \(result.summary(language: .english))"
             )
             expectEqual(

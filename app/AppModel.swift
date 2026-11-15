@@ -2074,18 +2074,6 @@ final class AppModel: ObservableObject {
     }
 
     @discardableResult
-    func applyWriteBack(_ plan: CopyQSyncRestorePlan) throws -> CopyQSyncRestoreResult {
-        // The rows themselves never change: the write only adds files and the
-        // stems each row now owns, so the history the list shows stays as it
-        // was.
-        try CopyQSyncRestore.apply(
-            plan,
-            in: history.store,
-            writer: syncWriter
-        )
-    }
-
-    @discardableResult
     func applyResync(_ plan: CopyQSyncResyncPlan) throws -> CopyQSyncResyncResult {
         let result = try CopyQSyncResync.apply(
             plan,

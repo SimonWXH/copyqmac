@@ -127,8 +127,16 @@ enum CopyQSyncRestoreReport {
             return stem
         }
         guard !name.hasPrefix("."), !name.contains(".syncthing.") else { return nil }
-        for suffix in [".tmp", ".bak"] where name.hasSuffix(suffix) {
-            return CopyQSyncWatcher.itemStem(ofFileName: String(name.dropLast(suffix.count)))
+        for suffix in [".tmp", ".bak"] {
+            guard let range = name.range(of: suffix, options: .backwards) else { continue }
+            let trailing = name[range.upperBound...]
+            let isPlainLeftover = trailing.isEmpty
+            let isNumberedVariant = trailing.first == "."
+                && !trailing.dropFirst().isEmpty
+                && trailing.dropFirst().allSatisfy(\.isNumber)
+            if isPlainLeftover || isNumberedVariant {
+                return CopyQSyncWatcher.itemStem(ofFileName: String(name[..<range.lowerBound]))
+            }
         }
         return nil
     }
