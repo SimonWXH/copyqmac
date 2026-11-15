@@ -299,6 +299,7 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case failureResyncFolderUnreadable
     case failureResyncFolderChanged
     case failureResyncPaused
+    case failureWriteBackPaused
     case failureTrimDestinationPrefix
     case failureSyncPausedMove
     case failureDestinationFolderUnavailablePrefix
@@ -326,6 +327,7 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case failureSyncFoldersImportPrefix
     case failureCompareTabSyncPrefix
     case failureResyncTabSyncPrefix
+    case failureWriteBackTabSyncPrefix
     case failureReconcileSyncFoldersPrefix
     case failureEmptySyncTrashPrefix
     case failureRemoveInternalMarkersPrefix
@@ -350,6 +352,7 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case buttonMove
     case buttonApply
     case buttonApplyChanges
+    case buttonWriteBack
     case buttonOpenPreferences
     case buttonLater
     case buttonReportOnly
@@ -410,6 +413,29 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case dialogResyncConflictMultipleGroups
     case dialogResyncConflictUnrelatedHistory
 
+    // Write Back to Sync Folder Dialog
+    case dialogWriteBackTitle
+    case dialogWriteBackIntro
+    case dialogWriteBackFooter
+    case dialogWriteBackPausedNote
+    case dialogWriteBackPlanWriteSingle
+    case dialogWriteBackPlanWritePlural
+    case dialogWriteBackPlanCreateSingle
+    case dialogWriteBackPlanCreatePlural
+    case dialogWriteBackPlanUpdateSingle
+    case dialogWriteBackPlanUpdatePlural
+    case dialogWriteBackPlanSkipSingle
+    case dialogWriteBackPlanSkipPlural
+    case dialogWriteBackPlanSkipMore
+    case dialogWriteBackPlanKeptSingle
+    case dialogWriteBackPlanKeptPlural
+    case dialogWriteBackSkipInternalOnly
+    case dialogWriteBackSkipEmptyContent
+    case dialogWriteBackSkipUndecodable
+    case dialogWriteBackSkipAlreadyInSync
+    case dialogWriteBackSkipUnrelatedHistory
+    case dialogWriteBackNoItems
+
     // Reconcile Dialog
     case dialogReconcileTitle
     case dialogReconcileInSync
@@ -441,6 +467,7 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case tabContextMoveUp
     case tabContextMoveDown
     case tabContextCompareSyncFolder
+    case tabContextWriteBack
 
     // Main Window: Filter bar and empty state
     case filterItemsPlaceholder
@@ -561,6 +588,17 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case resyncResultConflictsSingle
     case resyncResultConflictsPlural
     case resyncResultSkipped
+    case writeBackResultWrittenSingle
+    case writeBackResultWrittenPlural
+    case writeBackResultCreatedSingle
+    case writeBackResultCreatedPlural
+    case writeBackResultUpdatedSingle
+    case writeBackResultUpdatedPlural
+    case writeBackResultKeptSingle
+    case writeBackResultKeptPlural
+    case writeBackResultSkipped
+    case writeBackResultStopped
+    case writeBackStageWriteGroup
     case watcherSummaryUpdatedInPlace
     case watcherSummaryUpstreamDiscardedSingle
     case watcherSummaryUpstreamDiscardedPlural
@@ -602,6 +640,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
     case diagnosticSkippedFolderItemGone
     case diagnosticSkippedAlreadyHasFolderContent
     case diagnosticCouldNotUpdateStem
+    case diagnosticCouldNotWriteStem
+    case diagnosticSkippedNothingToWrite
     case diagnosticSkippedFile
 
     /// English translation value.
@@ -1088,6 +1128,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "The tab's sync folder changed from %@ to %@ after the report. Compare the tab again before applying."
         case .failureResyncPaused:
             return "Sync is paused, so \u{201C}%@\u{201D} cannot be resynced. Resume sync first."
+        case .failureWriteBackPaused:
+            return "Sync is paused, so \u{201C}%@\u{201D} cannot be written back. Resume sync first."
         case .failureTrimDestinationPrefix:
             return "Could not trim the destination tab: %@"
         case .failureSyncPausedMove:
@@ -1142,6 +1184,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "Could not compare the tab with its sync folder: %@"
         case .failureResyncTabSyncPrefix:
             return "Could not resync the tab with its sync folder: %@"
+        case .failureWriteBackTabSyncPrefix:
+            return "Could not write the tab's items back to its sync folder: %@"
         case .failureReconcileSyncFoldersPrefix:
             return "Could not reconcile sync folders: %@"
         case .failureEmptySyncTrashPrefix:
@@ -1186,6 +1230,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "Apply"
         case .buttonApplyChanges:
             return "Apply Changes\u{2026}"
+        case .buttonWriteBack:
+            return "Write to Folder"
         case .buttonOpenPreferences:
             return "Open Preferences"
         case .buttonLater:
@@ -1299,6 +1345,50 @@ public enum CatalogKey: String, CaseIterable, Sendable {
         case .dialogResyncConflictUnrelatedHistory:
             return "the entry's ownership comes only from its creation time, so the file could be unrelated history"
 
+        // Write Back to Sync Folder Dialog
+        case .dialogWriteBackTitle:
+            return "Write \u{201C}%@\u{201D} to Its Sync Folder?"
+        case .dialogWriteBackIntro:
+            return "This writes every local item of the tab back into its sync folder, with the same files and names a capture writes. It is the recovery step for a folder another program emptied."
+        case .dialogWriteBackFooter:
+            return "The folder is only written to: no file is deleted, renamed, or moved, and a stem that belongs to another entry is never touched. Each written entry replaces only the files it itself produces; every other file already in the folder, including an older file under a written stem that the entry no longer produces, is left exactly where it is."
+        case .dialogWriteBackPausedNote:
+            return "Sync is paused, so nothing will be written. Resume sync first."
+        case .dialogWriteBackPlanWriteSingle:
+            return "Write %d entry back to the folder."
+        case .dialogWriteBackPlanWritePlural:
+            return "Write %d entries back to the folder."
+        case .dialogWriteBackPlanCreateSingle:
+            return "Create %d file."
+        case .dialogWriteBackPlanCreatePlural:
+            return "Create %d files."
+        case .dialogWriteBackPlanUpdateSingle:
+            return "Update %d file in place."
+        case .dialogWriteBackPlanUpdatePlural:
+            return "Update %d files in place."
+        case .dialogWriteBackPlanSkipSingle:
+            return "Skip %d entry:"
+        case .dialogWriteBackPlanSkipPlural:
+            return "Skip %d entries:"
+        case .dialogWriteBackPlanSkipMore:
+            return "and %d more (%d in total)"
+        case .dialogWriteBackPlanKeptSingle:
+            return "Left in place: %d file is already in the folder and its entry does not produce it:"
+        case .dialogWriteBackPlanKeptPlural:
+            return "Left in place: %d files are already in the folder and their entries do not produce them:"
+        case .dialogWriteBackSkipInternalOnly:
+            return "only internal markers, so there is no content to write"
+        case .dialogWriteBackSkipEmptyContent:
+            return "no content"
+        case .dialogWriteBackSkipUndecodable:
+            return "the content cannot be decoded into the sync format"
+        case .dialogWriteBackSkipAlreadyInSync:
+            return "the folder already has this entry"
+        case .dialogWriteBackSkipUnrelatedHistory:
+            return "its ownership comes only from its creation time, so the group could be unrelated history"
+        case .dialogWriteBackNoItems:
+            return "This tab has no local entries to write back."
+
         // Reconcile Dialog
         case .dialogReconcileTitle:
             return "Reconcile Sync Folders"
@@ -1354,6 +1444,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "Move Down"
         case .tabContextCompareSyncFolder:
             return "Compare with Sync Folder\u{2026}"
+        case .tabContextWriteBack:
+            return "Write Local Items to Sync Folder\u{2026}"
 
         // Main Window: Filter bar and empty state
         case .filterItemsPlaceholder:
@@ -1580,6 +1672,28 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "left %d conflicts untouched"
         case .resyncResultSkipped:
             return "%d skipped"
+        case .writeBackResultWrittenSingle:
+            return "Wrote %d entry to the folder"
+        case .writeBackResultWrittenPlural:
+            return "Wrote %d entries to the folder"
+        case .writeBackResultCreatedSingle:
+            return "created %d file"
+        case .writeBackResultCreatedPlural:
+            return "created %d files"
+        case .writeBackResultUpdatedSingle:
+            return "updated %d file"
+        case .writeBackResultUpdatedPlural:
+            return "updated %d files"
+        case .writeBackResultKeptSingle:
+            return "left %d existing file in place that the write does not produce"
+        case .writeBackResultKeptPlural:
+            return "left %d existing files in place that the write does not produce"
+        case .writeBackResultSkipped:
+            return "%d skipped"
+        case .writeBackResultStopped:
+            return "stopped while %@"
+        case .writeBackStageWriteGroup:
+            return "writing %@"
         case .watcherSummaryUpdatedInPlace:
             return "%d updated in place"
         case .watcherSummaryUpstreamDiscardedSingle:
@@ -1660,6 +1774,10 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "Skipped %@: the entry already has the folder's content."
         case .diagnosticCouldNotUpdateStem:
             return "Could not update %@: %@"
+        case .diagnosticCouldNotWriteStem:
+            return "Could not write %@: %@"
+        case .diagnosticSkippedNothingToWrite:
+            return "Skipped %@: the writer found nothing to write."
         case .diagnosticSkippedFile:
             return "Skipped %@: %@"
         }
@@ -2149,6 +2267,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "标签页的同步文件夹在报告生成后从 %@ 变为了 %@。请重新对比后再应用。"
         case .failureResyncPaused:
             return "同步已暂停，因此无法重新同步“%@”。请先恢复同步。"
+        case .failureWriteBackPaused:
+            return "同步已暂停，因此无法写回“%@”。请先恢复同步。"
         case .failureTrimDestinationPrefix:
             return "无法裁剪目标标签页：%@"
         case .failureSyncPausedMove:
@@ -2203,6 +2323,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "无法将标签页与其同步文件夹进行对比：%@"
         case .failureResyncTabSyncPrefix:
             return "无法重新同步标签页与其同步文件夹：%@"
+        case .failureWriteBackTabSyncPrefix:
+            return "无法将标签页的条目写回其同步文件夹：%@"
         case .failureReconcileSyncFoldersPrefix:
             return "无法协调同步文件夹：%@"
         case .failureEmptySyncTrashPrefix:
@@ -2247,6 +2369,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "应用"
         case .buttonApplyChanges:
             return "应用更改\u{2026}"
+        case .buttonWriteBack:
+            return "写入文件夹"
         case .buttonOpenPreferences:
             return "打开偏好设置"
         case .buttonLater:
@@ -2360,6 +2484,50 @@ public enum CatalogKey: String, CaseIterable, Sendable {
         case .dialogResyncConflictUnrelatedHistory:
             return "该条目的归属仅来自其创建时间，因此该文件可能是无关的历史记录"
 
+        // Write Back to Sync Folder Dialog
+        case .dialogWriteBackTitle:
+            return "将“%@”写回同步文件夹？"
+        case .dialogWriteBackIntro:
+            return "这会把该标签页的每个本地条目按平时捕获时相同的文件与命名写回其同步文件夹。当同步文件夹被其他程序清空时，这就是恢复步骤。"
+        case .dialogWriteBackFooter:
+            return "只会向文件夹写入：不会删除、重命名或移动任何文件，也不会触碰属于其他条目的主名。每条被写入的条目只替换它自己产生的文件；文件夹中已有的其它任何文件，包括被写入主名下该条目不再产生的旧文件，都会原样保留。"
+        case .dialogWriteBackPausedNote:
+            return "同步已暂停，因此不会写入任何内容。请先恢复同步。"
+        case .dialogWriteBackPlanWriteSingle:
+            return "将 %d 条条目写回文件夹。"
+        case .dialogWriteBackPlanWritePlural:
+            return "将 %d 条条目写回文件夹。"
+        case .dialogWriteBackPlanCreateSingle:
+            return "新建 %d 个文件。"
+        case .dialogWriteBackPlanCreatePlural:
+            return "新建 %d 个文件。"
+        case .dialogWriteBackPlanUpdateSingle:
+            return "更新 %d 个文件。"
+        case .dialogWriteBackPlanUpdatePlural:
+            return "更新 %d 个文件。"
+        case .dialogWriteBackPlanSkipSingle:
+            return "跳过 %d 条条目："
+        case .dialogWriteBackPlanSkipPlural:
+            return "跳过 %d 条条目："
+        case .dialogWriteBackPlanSkipMore:
+            return "还有 %d 条（共 %d 条）"
+        case .dialogWriteBackPlanKeptSingle:
+            return "原样保留：%d 个文件已在文件夹中，所属条目不会写入它："
+        case .dialogWriteBackPlanKeptPlural:
+            return "原样保留：%d 个文件已在文件夹中，所属条目不会写入它们："
+        case .dialogWriteBackSkipInternalOnly:
+            return "仅有内部标记，没有可写入的内容"
+        case .dialogWriteBackSkipEmptyContent:
+            return "没有内容"
+        case .dialogWriteBackSkipUndecodable:
+            return "内容无法解码为同步格式"
+        case .dialogWriteBackSkipAlreadyInSync:
+            return "文件夹中已有该条目"
+        case .dialogWriteBackSkipUnrelatedHistory:
+            return "其归属仅来自创建时间，该文件组可能是无关的历史记录"
+        case .dialogWriteBackNoItems:
+            return "该标签页没有可写回的本地条目。"
+
         // Reconcile Dialog
         case .dialogReconcileTitle:
             return "核对同步文件夹"
@@ -2415,6 +2583,8 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "下移"
         case .tabContextCompareSyncFolder:
             return "与同步文件夹对比\u{2026}"
+        case .tabContextWriteBack:
+            return "把本地内容写回同步文件夹\u{2026}"
 
         // Main Window: Filter bar and empty state
         case .filterItemsPlaceholder:
@@ -2641,6 +2811,28 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "保留了 %d 个冲突未处理"
         case .resyncResultSkipped:
             return "已跳过 %d 个"
+        case .writeBackResultWrittenSingle:
+            return "已将 %d 条条目写入文件夹"
+        case .writeBackResultWrittenPlural:
+            return "已将 %d 条条目写入文件夹"
+        case .writeBackResultCreatedSingle:
+            return "新建了 %d 个文件"
+        case .writeBackResultCreatedPlural:
+            return "新建了 %d 个文件"
+        case .writeBackResultUpdatedSingle:
+            return "更新了 %d 个文件"
+        case .writeBackResultUpdatedPlural:
+            return "更新了 %d 个文件"
+        case .writeBackResultKeptSingle:
+            return "原样保留了 %d 个写入不会产生的既有文件"
+        case .writeBackResultKeptPlural:
+            return "原样保留了 %d 个写入不会产生的既有文件"
+        case .writeBackResultSkipped:
+            return "已跳过 %d 个"
+        case .writeBackResultStopped:
+            return "已在%@时停止"
+        case .writeBackStageWriteGroup:
+            return "写入 %@"
         case .watcherSummaryUpdatedInPlace:
             return "原地更新了 %d 个"
         case .watcherSummaryUpstreamDiscardedSingle:
@@ -2721,6 +2913,10 @@ public enum CatalogKey: String, CaseIterable, Sendable {
             return "已跳过 %@：该条目已包含文件夹中的内容。"
         case .diagnosticCouldNotUpdateStem:
             return "无法更新 %@：%@"
+        case .diagnosticCouldNotWriteStem:
+            return "无法写入 %@：%@"
+        case .diagnosticSkippedNothingToWrite:
+            return "已跳过 %@：没有可写入的内容。"
         case .diagnosticSkippedFile:
             return "已跳过 %@：%@"
         }
@@ -2975,6 +3171,7 @@ public enum Localization {
             ("Could not check internal marker entries: ", .failureCheckInternalMarkersPrefix),
             ("Could not compare the tab with its sync folder: ", .failureCompareTabSyncPrefix),
             ("Could not resync the tab with its sync folder: ", .failureResyncTabSyncPrefix),
+            ("Could not write the tab's items back to its sync folder: ", .failureWriteBackTabSyncPrefix),
             ("Could not reconcile sync folders: ", .failureReconcileSyncFoldersPrefix),
             ("Could not empty the sync trash: ", .failureEmptySyncTrashPrefix),
             ("Paste failed: ", .failurePastePrefix),
@@ -3075,6 +3272,7 @@ public enum Localization {
         (ReasonPattern(literals: ["Could not read ", ": ", ""]), .failureResyncFolderUnreadable),
         (ReasonPattern(literals: ["The tab's sync folder changed from ", " to ", " after the report. Compare the tab again before applying."]), .failureResyncFolderChanged),
         (ReasonPattern(literals: ["Sync is paused, so \u{201C}", "\u{201D} cannot be resynced. Resume sync first."]), .failureResyncPaused),
+        (ReasonPattern(literals: ["Sync is paused, so \u{201C}", "\u{201D} cannot be written back. Resume sync first."]), .failureWriteBackPaused),
         (ReasonPattern(literals: ["Kept the local version of ", " because it is newer than the upstream edit."]), .noticeKeptLocalVersionPrefix),
         (ReasonPattern(literals: ["Kept the local versions of ", " because they are newer than the upstream edits."]), .noticeKeptLocalVersionsPrefix),
         (ReasonPattern(literals: ["Removed the entry for ", " after it was deleted in the sync folder."]), .noticeRemovedEntryAfterRemoteDeletionPrefix),
@@ -3095,7 +3293,9 @@ public enum Localization {
         (ReasonPattern(literals: ["Could not import ", ": ", ""]), .diagnosticCouldNotImportStem),
         (ReasonPattern(literals: ["Skipped ", ": the folder item is gone."]), .diagnosticSkippedFolderItemGone),
         (ReasonPattern(literals: ["Skipped ", ": the entry already has the folder's content."]), .diagnosticSkippedAlreadyHasFolderContent),
+        (ReasonPattern(literals: ["Skipped ", ": the writer found nothing to write."]), .diagnosticSkippedNothingToWrite),
         (ReasonPattern(literals: ["Could not update ", ": ", ""]), .diagnosticCouldNotUpdateStem),
+        (ReasonPattern(literals: ["Could not write ", ": ", ""]), .diagnosticCouldNotWriteStem),
         (ReasonPattern(literals: ["Skipped ", ": ", ""]), .diagnosticSkippedFile),
     ]
 

@@ -186,26 +186,39 @@ public final class CopyQSyncWriter: @unchecked Sendable {
     /// aside, and only then are the staged files renamed into place. The
     /// temporary names make the group incomplete while it is being swapped, and
     /// a failure restores the previous group and removes every temporary file,
-    /// so the folder never holds a mix of an old and a new group.
+    /// so the folder never holds a mix of an old and a new group.  A caller
+    /// that keeps superseded files leaves every pre-existing file alone: no
+    /// leftover is cleaned up, and staging and backup names are chosen so
+    /// nothing already in the folder is overwritten or moved.
     private func installGroup(
         _ files: [String: Data],
         stem: String,
         in directory: URL,
         replacing previousNames: [String],
+        keepSupersededFiles: Bool = false,
         fileManager: FileManager
     ) throws -> [SyncWrittenFile] {
         func url(_ name: String) -> URL {
             directory.appendingPathComponent(name)
         }
-        for name in (try? fileManager.contentsOfDirectory(atPath: directory.path)) ?? []
-            where isInterruptedInstallFile(name, stem: stem) {
-            try? fileManager.removeItem(at: url(name))
+        if !keepSupersededFiles {
+            for name in (try? fileManager.contentsOfDirectory(atPath: directory.path)) ?? []
+                where isInterruptedInstallFile(name, stem: stem) {
+                try? fileManager.removeItem(at: url(name))
+            }
         }
-        let staged = files.keys.sorted().map { (suffix: $0, name: stem + $0 + ".tmp") }
+        let staged = files.keys.sorted().map { suffix in
+            (suffix: suffix, name: uniqueInstallName(
+                for: stem + suffix + ".tmp",
+                keepSupersededFiles: keepSupersededFiles,
+                in: directory,
+                fileManager: fileManager
+            ))
+        }
 
         do {
-            for (suffix, data) in files {
-                try data.write(to: url(stem + suffix + ".tmp"))
+            for entry in staged {
+                try files[entry.suffix]!.write(to: url(entry.name))
             }
         } catch {
             for entry in staged {
@@ -218,8 +231,15 @@ public final class CopyQSyncWriter: @unchecked Sendable {
         var installed: [String] = []
         do {
             for name in previousNames.sorted() {
-                let backup = name + ".bak"
-                try? fileManager.removeItem(at: url(backup))
+                let backup = uniqueInstallName(
+                    for: name + ".bak",
+                    keepSupersededFiles: keepSupersededFiles,
+                    in: directory,
+                    fileManager: fileManager
+                )
+                if !keepSupersededFiles {
+                    try? fileManager.removeItem(at: url(backup))
+                }
                 try fileManager.moveItem(at: url(name), to: url(backup))
                 backups.append((backup, name))
             }
@@ -262,6 +282,24 @@ public final class CopyQSyncWriter: @unchecked Sendable {
             return false
         }
         return CopyQSyncWatcher.itemStem(ofFileName: base) == stem
+    }
+
+    /// The install name to use: the default name when existing files may be
+    /// replaced, otherwise a variant no file in the folder already holds.
+    private func uniqueInstallName(
+        for defaultName: String,
+        keepSupersededFiles: Bool,
+        in directory: URL,
+        fileManager: FileManager
+    ) -> String {
+        guard keepSupersededFiles else { return defaultName }
+        var candidate = defaultName
+        var index = 0
+        while fileManager.fileExists(atPath: directory.appendingPathComponent(candidate).path) {
+            index += 1
+            candidate = "\(defaultName).\(index)"
+        }
+        return candidate
     }
 
     /// Synchronously writes a newly captured entry into its mapped sync folder.
@@ -430,7 +468,12 @@ public final class CopyQSyncWriter: @unchecked Sendable {
     /// A missing or unreadable folder never fails the edit: the failure is
     /// written to the sync log and returned, and the local row keeps the new
     /// content. When the entry owns several groups, the rewrite keeps one stem
-    /// and moves the extra groups to the app trash.
+    /// and moves the extra groups to the app trash; a caller that must take
+    /// nothing out of the folder passes `convergeSupersededGroups: false` and
+    /// leaves every other group where it is. A caller that must additionally
+    /// keep the files of its own group that the new content no longer produces
+    /// passes `keepSupersededFiles: true`, so only same-named files are
+    /// replaced and no file is ever removed.
     @discardableResult
     public func updateEntry(
         _ entry: ClipboardEntry,
@@ -438,6 +481,8 @@ public final class CopyQSyncWriter: @unchecked Sendable {
         reason: String = "edit",
         stem preferredStem: String? = nil,
         trashRoot: URL? = nil,
+        convergeSupersededGroups: Bool = true,
+        keepSupersededFiles: Bool = false,
         fileManager: FileManager = .default
     ) -> SyncLogEntry? {
         updateLock.lock()
@@ -534,9 +579,14 @@ public final class CopyQSyncWriter: @unchecked Sendable {
         let dirURL = URL(fileURLWithPath: normalizedFolder, isDirectory: true)
 
         // Files from the previous content that this version may no longer
-        // write. The whole group is replaced as a unit below.
-        let previousNames = folderNames.filter {
-            CopyQSyncWatcher.itemStem(ofFileName: $0) == stem
+        // write. The whole group is replaced as a unit below; a caller that
+        // keeps superseded files replaces only the files it produces itself.
+        let previousNames = folderNames.filter { name in
+            guard CopyQSyncWatcher.itemStem(ofFileName: name) == stem else { return false }
+            if keepSupersededFiles {
+                return newFiles.keys.contains(String(name.dropFirst(stem.count)))
+            }
+            return true
         }
 
         let written: [SyncWrittenFile]
@@ -546,6 +596,7 @@ public final class CopyQSyncWriter: @unchecked Sendable {
                 stem: stem,
                 in: dirURL,
                 replacing: previousNames,
+                keepSupersededFiles: keepSupersededFiles,
                 fileManager: fileManager
             )
         } catch {
@@ -563,14 +614,16 @@ public final class CopyQSyncWriter: @unchecked Sendable {
         if let baseName = CopyQSyncDeletion.baseName(of: current), baseName != stem {
             try? store.replaceSyncBaseName(id: current.id, with: stem)
         }
-        convergeSupersededStems(
-            ownedStems.filter { $0 != stem },
-            folder: normalizedFolder,
-            tab: tab,
-            store: store,
-            trashRoot: trashRoot,
-            fileManager: fileManager
-        )
+        if convergeSupersededGroups {
+            convergeSupersededStems(
+                ownedStems.filter { $0 != stem },
+                folder: normalizedFolder,
+                tab: tab,
+                store: store,
+                trashRoot: trashRoot,
+                fileManager: fileManager
+            )
+        }
 
         let log = SyncLogEntry(
             stem: stem,

@@ -299,6 +299,18 @@ Tools. `tests/` contains a small assertion harness and the suites:
   refusal, and the two-step dialog whose default button only reports, which gets
   its report and plan from one comparison on a background task, and whose
   confirmed apply refreshes the visible list
+- CopyQ sync write-back restore: planning a tab's entries into its folder
+  without touching it, one complete group per entry into an emptied folder with
+  unrelated and hidden files kept byte-for-byte, refusal without a sync folder
+  and while paused, skipped internal-only, empty, and undecodable rows with
+  exact counts, a note-only row written instead of skipped, a kept sibling file
+  and pre-existing staging and backup leftovers (including numeric variants)
+  surviving byte-for-byte and named in the plan and result, written stems
+  recorded so a repeat writes no duplicate, an existing group with different
+  content rewritten in place, a legacy-only stem kept when it matches and
+  skipped when it differs, a failed write stopping the run and keeping the
+  files already written, and the confirmation's counts, skip lines, and
+  diagnostics in both languages
 - row presentation, thumbnail, and rich-text caches: hits, misses, byte-budget
   LRU bounds, invalidation on change and delete, thumbnail downsampling, rich
   HTML/RTF rendering and appearance adaptation, the full-text line count the

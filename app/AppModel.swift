@@ -323,6 +323,7 @@ final class AppModel: ObservableObject {
     /// hotkey.
     var onPreferencesChanged: ((Preferences) -> Void)?
     var onResyncTabRequest: ((Int64) -> Void)?
+    var onWriteBackTabRequest: ((Int64) -> Void)?
     /// The last app seen as frontmost. Preferences uses it to offer "add the app
     /// I just copied from" without depending on AppKit itself.
     var sourceApplicationProvider: (@MainActor () -> SourceApplication?)?
@@ -2064,6 +2065,12 @@ final class AppModel: ObservableObject {
 
     func requestResyncTab(_ tabID: Int64) {
         onResyncTabRequest?(tabID)
+    }
+
+    /// The tab context menu's write-back command, which needs no menu-item
+    /// sender to carry the tab id.
+    func requestWriteBackTab(_ tabID: Int64) {
+        onWriteBackTabRequest?(tabID)
     }
 
     @discardableResult
