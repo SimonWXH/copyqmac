@@ -825,6 +825,40 @@ func registerWindowLayoutTests() {
         expectEqual(button.isSidebarVisible, true, "button reflects visible state")
     }
 
+    TestRunner.add("sidebar toggle button styles foreground and background identically across states") {
+        var visibilityExpanded = NavigationSplitViewVisibility.all
+        let bindingExpanded = Binding(get: { visibilityExpanded }, set: { visibilityExpanded = $0 })
+        let buttonExpanded = SidebarToggleButton(columnVisibility: bindingExpanded, language: .english)
+
+        var visibilityCollapsed = NavigationSplitViewVisibility.detailOnly
+        let bindingCollapsed = Binding(get: { visibilityCollapsed }, set: { visibilityCollapsed = $0 })
+        let buttonCollapsed = SidebarToggleButton(columnVisibility: bindingCollapsed, language: .english)
+
+        expectEqual(buttonExpanded.isSidebarVisible, true, "expanded state reports visible")
+        expectEqual(buttonCollapsed.isSidebarVisible, false, "collapsed state reports hidden")
+
+        expectEqual(
+            buttonExpanded.currentForegroundColor,
+            buttonCollapsed.currentForegroundColor,
+            "foreground color must be identical across expanded and collapsed states"
+        )
+        expectEqual(
+            buttonExpanded.currentBackgroundColor,
+            buttonCollapsed.currentBackgroundColor,
+            "background color must be identical across expanded and collapsed states"
+        )
+        expectEqual(
+            buttonExpanded.currentForegroundColor,
+            DesignTokens.Colors.label,
+            "foreground color must be DesignTokens.Colors.label"
+        )
+        expectEqual(
+            buttonExpanded.currentBackgroundColor,
+            Color.clear,
+            "background color must be Color.clear"
+        )
+    }
+
     TestRunner.add("sidebar toggle button sits right of the title and stays put across toggles") {
         MainActor.assumeIsolated {
             do {
@@ -1108,6 +1142,7 @@ private final class LayoutBWindowHarness {
 
     init(
         inspectorSplitRatio: Double = 0.55,
+        sidebarWidth: Double = SidebarLayout.defaultWidth,
         root: Root = .mainWindow,
         size: NSSize = NSSize(width: 900, height: 460)
     ) throws {
@@ -1116,6 +1151,7 @@ private final class LayoutBWindowHarness {
         var preferences = try store.preferences()
         preferences.windowLayout = .layoutB
         preferences.inspectorSplitRatio = inspectorSplitRatio
+        preferences.sidebarWidth = sidebarWidth
         try store.setPreferences(preferences)
         let history = ClipboardHistory(store: store)
         secondTab = try history.addTab(name: "Later")

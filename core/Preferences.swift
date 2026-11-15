@@ -133,6 +133,18 @@ public enum InspectorSplitLayout {
     }
 }
 
+/// Geometry and clamping logic for the sidebar column in Layout B.
+public enum SidebarLayout {
+    public static let defaultWidth: Double = 200
+    public static let minWidth: Double = 160
+    public static let maxWidth: Double = 420
+
+    /// Clamps a sidebar width to the allowed 160...420 range.
+    public static func clampWidth(_ width: Double) -> Double {
+        min(max(width, minWidth), maxWidth)
+    }
+}
+
 /// A font the user chose for one surface: a family name and a point size.
 ///
 /// The core layer has no AppKit, so the choice is stored as data and resolved to
@@ -216,6 +228,8 @@ public struct Preferences: Codable, Equatable, Sendable {
     private var legacyWindowLayout: String?
     /// Ratio of the inspector height allocated to the preview pane (0.20...0.80). Defaults to 0.55.
     public var inspectorSplitRatio: Double
+    /// Width of the sidebar column in Layout B (160...420 pt). Defaults to 200.
+    public var sidebarWidth: Double
 
     private enum CodingKeys: String, CodingKey {
         case hotKeyKeyCode
@@ -236,6 +250,7 @@ public struct Preferences: Codable, Equatable, Sendable {
         case editorFont
         case windowLayout = "windowLayoutChoice"
         case inspectorSplitRatio
+        case sidebarWidth
         case legacyWindowLayout = "windowLayout"
     }
 
@@ -259,7 +274,8 @@ public struct Preferences: Codable, Equatable, Sendable {
         itemListFont: .defaultValue,
         editorFont: .defaultValue,
         windowLayout: .layoutB,
-        inspectorSplitRatio: InspectorSplitLayout.defaultRatio
+        inspectorSplitRatio: InspectorSplitLayout.defaultRatio,
+        sidebarWidth: SidebarLayout.defaultWidth
     )
 
     public init(
@@ -280,7 +296,8 @@ public struct Preferences: Codable, Equatable, Sendable {
         itemListFont: FontPreference = .defaultValue,
         editorFont: FontPreference = .defaultValue,
         windowLayout: WindowLayout = .layoutB,
-        inspectorSplitRatio: Double = InspectorSplitLayout.defaultRatio
+        inspectorSplitRatio: Double = InspectorSplitLayout.defaultRatio,
+        sidebarWidth: Double = SidebarLayout.defaultWidth
     ) {
         self.hotKeyKeyCode = hotKeyKeyCode
         self.hotKeyModifiers = hotKeyModifiers
@@ -300,6 +317,7 @@ public struct Preferences: Codable, Equatable, Sendable {
         self.editorFont = editorFont
         self.windowLayout = windowLayout
         self.inspectorSplitRatio = InspectorSplitLayout.clampRatio(inspectorSplitRatio)
+        self.sidebarWidth = SidebarLayout.clampWidth(sidebarWidth)
     }
 
     /// Tolerant decoding: unknown or missing fields fall back to defaults so a
@@ -342,6 +360,10 @@ public struct Preferences: Codable, Equatable, Sendable {
             (try? container.decode(Double.self, forKey: .inspectorSplitRatio))
                 ?? fallback.inspectorSplitRatio
         )
+        sidebarWidth = SidebarLayout.clampWidth(
+            (try? container.decode(Double.self, forKey: .sidebarWidth))
+                ?? fallback.sidebarWidth
+        )
     }
 
     /// Clamps values that would make the app unusable.
@@ -350,6 +372,7 @@ public struct Preferences: Codable, Equatable, Sendable {
         copy.defaultMaxItems = min(max(defaultMaxItems, 1), 100_000)
         copy.captureExclusions = Preferences.normalizedCaptureExclusions(captureExclusions)
         copy.inspectorSplitRatio = InspectorSplitLayout.clampRatio(copy.inspectorSplitRatio)
+        copy.sidebarWidth = SidebarLayout.clampWidth(copy.sidebarWidth)
         return copy
     }
 

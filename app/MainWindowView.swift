@@ -134,6 +134,14 @@ struct SidebarToggleButton: View {
         columnVisibility != .detailOnly
     }
 
+    /// Foreground style for the toggle icon in any sidebar visibility state.
+    static let iconForegroundColor = DesignTokens.Colors.label
+    /// Background color for the toggle icon in any sidebar visibility state.
+    static let iconBackgroundColor = Color.clear
+
+    var currentForegroundColor: Color { Self.iconForegroundColor }
+    var currentBackgroundColor: Color { Self.iconBackgroundColor }
+
     func toggle() {
         columnVisibility = isSidebarVisible ? .detailOnly : .all
     }
@@ -146,12 +154,9 @@ struct SidebarToggleButton: View {
         } label: {
             Image(systemName: "sidebar.leading")
                 .font(.system(size: 14))
-                .foregroundStyle(isSidebarVisible ? DesignTokens.Colors.selection : DesignTokens.Colors.label)
+                .foregroundStyle(Self.iconForegroundColor)
                 .frame(width: 28, height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: DesignTokens.Radius.tag, style: .continuous)
-                        .fill(isSidebarVisible ? DesignTokens.Colors.selection.opacity(0.12) : Color.clear)
-                )
+                .background(Self.iconBackgroundColor)
         }
         .buttonStyle(.plain)
         .keyboardShortcut("s", modifiers: [.control, .command])
@@ -210,6 +215,14 @@ private struct ToolbarToggleAnchor: NSViewRepresentable {
     }
 }
 
+private struct SidebarWidthPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = CGFloat(SidebarLayout.defaultWidth)
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 // MARK: - Layout B (Sidebar + Inspector)
 
 struct LayoutBView: View {
@@ -221,6 +234,7 @@ struct LayoutBView: View {
     @State private var isInspectorVisible = true
     @State private var noteFocused = false
     @State private var dragRatio: Double?
+    @State private var sidebarDebouncer = SidebarWidthDebouncer()
 
     private var selectedEntry: ClipboardEntry? {
         guard let id = model.selection.selectedEntryID else { return nil }
@@ -231,7 +245,28 @@ struct LayoutBView: View {
         let lang = model.preferences.language
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarTabView(model: model)
-                .navigationSplitViewColumnWidth(min: 160, ideal: 200, max: 260)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: SidebarWidthPreferenceKey.self,
+                            value: geo.size.width
+                        )
+                    }
+                )
+                .onPreferenceChange(SidebarWidthPreferenceKey.self) { width in
+                    sidebarDebouncer.handleWidthChange(
+                        measuredWidth: Double(width),
+                        isCollapsed: columnVisibility == .detailOnly,
+                        currentStoredWidth: model.preferences.sidebarWidth
+                    ) { newWidth in
+                        model.updatePreferences { $0.sidebarWidth = newWidth }
+                    }
+                }
+                .navigationSplitViewColumnWidth(
+                    min: CGFloat(SidebarLayout.minWidth),
+                    ideal: CGFloat(model.preferences.sidebarWidth),
+                    max: CGFloat(SidebarLayout.maxWidth)
+                )
                 .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 0) {
@@ -392,6 +427,14 @@ struct LayoutBView: View {
         }
         .onChange(of: model.focusNoteToken) { _, _ in noteFocused = true }
         .onChange(of: model.noteBlurToken) { _, _ in noteFocused = false }
+        .onChange(of: columnVisibility) { _, newVisibility in
+            if newVisibility == .detailOnly {
+                sidebarDebouncer.cancel()
+            }
+        }
+        .onDisappear {
+            sidebarDebouncer.cancel()
+        }
     }
 }
 
