@@ -817,6 +817,12 @@ and still enriches any CopyQ MIME-named flavour left by an older import
 `public.file-url`). New imports already store the native names, so this only
 covers rows captured before the import translation existed.
 
+A row dragged out of the list uses a separate pasteboard path: its writer and
+`tableView(_:draggingSession:willBeginAt:forRowIndexes:)` attach standard and
+legacy representations for external apps while preserving `com.copyqmac.entry-ids`
+for internal tab drops. Bookkeeping and unknown custom payloads are excluded from
+the drag, and each URL in a multi-file entry gets its own `public.file-url` item.
+
 ### Paste as Plain Text
 
 Item ▸ Paste as Plain Text (⇧⌘V) and the global ⇧⌘V shortcut share one command
@@ -1062,7 +1068,12 @@ menu-bar item available.
   collapse to one row, Shift extends, Command-A selects all, Escape clears a
   multi-selection before the window would hide).
   Rows drag with a private pasteboard type that the tab chips accept, which is
-  how a whole selection moves to another tab.
+  how a whole selection moves to another tab. The same row writer also attaches
+  the entry's standard representations (text, rich text, images, and file URLs),
+  and the drag-begin delegate rebuilds the drag pasteboard from the dragged
+  entries so multi-file, legacy, and multi-row drags keep their full payload and
+  internal ids. Custom and bookkeeping flavours stay out of the drag, while
+  paste-back still writes every stored flavour.
 - The list scrolls only when the selected row is not fully inside the viewport
   (`SelectionRevealPolicy`). After a capture or tab change `AppModel` asks for a
   reveal, so a newly captured entry - and a selection pushed down by it - stays

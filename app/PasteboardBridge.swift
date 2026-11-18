@@ -254,8 +254,9 @@ public enum PasteboardBridge {
 
     /// Writes flavours back to the pasteboard, rebuilding the item structure.
     ///
-    /// Returns the pasteboard `changeCount` after the write so the watcher can
-    /// recognise and ignore its own write.
+    /// Unlike the drag path, this restores all stored representations. Returns
+    /// the pasteboard `changeCount` after the write so the watcher can recognise
+    /// and ignore its own write.
     @discardableResult
     public static func write(_ flavours: [Flavour], to pasteboard: NSPasteboard = .general) -> Int {
         let items = pasteboardItems(from: flavours)

@@ -23,9 +23,9 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The pasteboard type a row drag publishes. The tab strip accepts it and then
-/// asks the model to move the current selection; the payload itself only has to
-/// prove the drag came from this list.
+/// The pasteboard type a row drag publishes alongside its standard payload.
+/// The tab strip accepts it and asks the model to move the current selection;
+/// the payload itself only has to prove the drag came from this list.
 enum EntryDrag {
     static let identifier = "com.copyqmac.entry-ids"
     static let pasteboardType = NSPasteboard.PasteboardType(identifier)
@@ -405,8 +405,8 @@ struct EntryListView: NSViewRepresentable {
         tableView.focusRingType = .none
         tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         // Rows also drag onto the tab strip. The selection, not the row under
-        // the pointer, is what moves, so the drag source only needs to prove
-        // it came from this list.
+        // the pointer, is what moves, so the internal id travels with the
+        // standard types attached for external drops.
         tableView.setDraggingSourceOperationMask(.copy, forLocal: true)
         tableView.setDraggingSourceOperationMask(.copy, forLocal: false)
         tableView.target = coordinator

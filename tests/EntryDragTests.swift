@@ -1,6 +1,27 @@
 import AppKit
 import Foundation
 
+/// A real `NSDraggingSession` is only created by AppKit for a live drag, which
+/// a headless suite cannot start. This subclass only supplies the pasteboard
+/// the shipped delegate method writes through, so the delegate call itself is
+/// exercised rather than its implementation being called directly.
+private final class EntryDragTestSession: NSDraggingSession {
+    /// The base class owns drag-session resources that it only disposes when it
+    /// deinitializes. The suite keeps its stand-in sessions alive so teardown
+    /// cannot try to dispose a session AppKit never created.
+    private static var retained: [EntryDragTestSession] = []
+
+    private let pasteboard: NSPasteboard
+
+    init(pasteboard: NSPasteboard) {
+        self.pasteboard = pasteboard
+        super.init()
+        Self.retained.append(self)
+    }
+
+    override var draggingPasteboard: NSPasteboard { pasteboard }
+}
+
 func registerEntryDragTests() {
     TestRunner.currentSuite = "EntryDrag"
 
@@ -352,6 +373,66 @@ func registerEntryDragTests() {
 
             expectNil(coordinator.tableView(table, pasteboardWriterForRow: 0))
             expectNil(coordinator.tableView(table, pasteboardWriterForRow: -1))
+        }
+    }
+
+    TestRunner.add("the drag session delegate publishes standard types and the internal id") {
+        MainActor.assumeIsolated {
+            let entryID: Int64 = 45
+            let text = "Delegate drag payload"
+            let entry = ClipboardEntry(
+                id: entryID,
+                createdAt: Date(),
+                tabID: 1,
+                flavours: [
+                    Flavour(itemIndex: 0, type: PasteboardTypes.mimeText, data: Data(text.utf8))
+                ]
+            )
+            let list = EntryListView(
+                rows: [makeRow(id: entryID, text: text)],
+                rowsRevision: 1,
+                selection: SelectionState(),
+                singleClickActivates: false,
+                actions: EntryRowActions(entry: { id in id == entryID ? entry : nil }),
+                contextActions: .none,
+                onSelectionChange: { _ in },
+                onActivate: { _ in },
+                onCopy: { _ in },
+                onFocusChange: { _ in },
+                onRowBecameVisible: { _ in },
+                banner: nil,
+                onBannerAction: {},
+                onBannerDismiss: {}
+            )
+            let coordinator = list.makeCoordinator()
+            let table = EntryListView.makeTableView(coordinator: coordinator)
+            coordinator.attach(to: table)
+            expect(
+                coordinator.responds(
+                    to: NSSelectorFromString("tableView:draggingSession:willBeginAtPoint:forRowIndexes:")
+                ),
+                "the table delegate must expose the drag-begin callback AppKit invokes"
+            )
+
+            let pasteboard = NSPasteboard(name: .init("copyqmac-delegate-drag-\(UUID().uuidString)"))
+            guard let writer = coordinator.tableView(table, pasteboardWriterForRow: 0) as? NSPasteboardItem else {
+                TestRunner.fail("pasteboardWriterForRow must return an NSPasteboardItem")
+                return
+            }
+            pasteboard.clearContents()
+            pasteboard.writeObjects([writer])
+
+            let session = EntryDragTestSession(pasteboard: pasteboard)
+            coordinator.tableView(
+                table,
+                draggingSession: session,
+                willBeginAt: .zero,
+                forRowIndexes: IndexSet(integer: 0)
+            )
+
+            expectEqual(pasteboard.string(forType: .init(PasteboardTypes.utf8Text)), text)
+            expectEqual(pasteboard.string(forType: EntryDrag.pasteboardType), String(entryID))
+            expectEqual(pasteboard.pasteboardItems?.count, 1)
         }
     }
 

@@ -30,7 +30,7 @@
 	<false/>
 	<key>NSSupportsSuddenTermination</key>
 	<false/>
-	<!-- The item list publishes this type while dragging rows onto a tab. -->
+	<!-- The item list publishes this type alongside standard payloads while dragging rows. -->
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
