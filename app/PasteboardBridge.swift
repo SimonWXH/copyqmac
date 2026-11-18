@@ -40,7 +40,7 @@ public enum PasteboardBridge {
 
     /// Builds NSPasteboardItems for the given flavours, synthesising standard
     /// pasteboard types (UTF-8 plain text, HTML, RTF, PNG, JPEG, TIFF, GIF,
-    /// HEIC, file URL) when only MIME or legacy flavours are present.
+    /// BMP, HEIC, file URL) when only MIME or legacy flavours are present.
     public static func pasteboardItems(from flavours: [Flavour]) -> [NSPasteboardItem] {
         makePasteboardItems(from: flavours, allowedTypes: nil)
     }
