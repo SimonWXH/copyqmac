@@ -1493,6 +1493,15 @@ final class AppModel: ObservableObject {
     func selectFirst() { select(entries.first?.id) }
     func selectLast() { select(entries.last?.id) }
 
+    /// Selects the visible entry corresponding to the 1-based row number.
+    @discardableResult
+    func selectEntry(number: Int) -> Bool {
+        let index = number - 1
+        guard entries.indices.contains(index) else { return false }
+        select(entries[index].id)
+        return true
+    }
+
     /// The selected entries in the order the list shows them.
     var selectedEntriesInDisplayOrder: [ClipboardEntry] {
         entries.filter { selection.selectedEntryIDs.contains($0.id) }

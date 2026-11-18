@@ -179,6 +179,10 @@ final class MainWindowController: NSObject, NSWindowDelegate, WindowControllerPr
                 dismiss?()
             }
         case .delete: model.removeSelected()
+        case .digit(let number):
+            if model.selectEntry(number: number) {
+                model.pasteSelected(dismiss: dismiss ?? {})
+            }
         }
         return true
     }
