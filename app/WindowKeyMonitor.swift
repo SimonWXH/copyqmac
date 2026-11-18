@@ -26,11 +26,13 @@ final class WindowKeyMonitor {
                 guard let self, let window = self.window, window.isKeyWindow else { return false }
                 guard let key = Self.map(event) else { return false }
                 let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                let otherModifiers = !flags.subtracting([.command, .capsLock, .numericPad, .function]).isEmpty
                 guard ListInteractionPolicy.handles(
                     key,
                     noteEditing: noteEditing(),
                     searchEmpty: !searchActive(),
                     commandHeld: flags.contains(.command),
+                    hasOtherModifiers: otherModifiers,
                     focus: focus()
                 ) else { return false }
                 if event.isARepeat, ListInteractionPolicy.ignoresKeyRepeat(key) { return true }
@@ -50,8 +52,12 @@ final class WindowKeyMonitor {
 
     /// Maps a key event to the list command it means, without deciding whether
     /// the window should act on it; `ListInteractionPolicy` owns that decision.
-    private static func map(_ event: NSEvent) -> ListKey? {
-        switch Int(event.keyCode) {
+    static func map(_ event: NSEvent) -> ListKey? {
+        map(keyCode: Int(event.keyCode))
+    }
+
+    static func map(keyCode: Int) -> ListKey? {
+        switch keyCode {
         case kVK_UpArrow: return .up
         case kVK_DownArrow: return .down
         case kVK_PageUp: return .pageUp
@@ -61,6 +67,15 @@ final class WindowKeyMonitor {
         case kVK_Return, kVK_ANSI_KeypadEnter: return .enter
         case kVK_Escape: return .escape
         case kVK_Delete, kVK_ForwardDelete: return .delete
+        case kVK_ANSI_1: return .digit(1)
+        case kVK_ANSI_2: return .digit(2)
+        case kVK_ANSI_3: return .digit(3)
+        case kVK_ANSI_4: return .digit(4)
+        case kVK_ANSI_5: return .digit(5)
+        case kVK_ANSI_6: return .digit(6)
+        case kVK_ANSI_7: return .digit(7)
+        case kVK_ANSI_8: return .digit(8)
+        case kVK_ANSI_9: return .digit(9)
         default: return nil
         }
     }
