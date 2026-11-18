@@ -807,7 +807,7 @@ struct EntryListView: NSViewRepresentable {
             }
 
             if isLeader, let entry = parent.actions.entry(entryID) {
-                PasteboardBridge.attachStandardTypes(from: entry.flavours, to: item)
+                PasteboardBridge.attachDragTypes(from: entry.flavours, to: item)
             }
             return item
         }

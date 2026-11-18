@@ -375,4 +375,98 @@ func registerEntryDragTests() {
         expect(types.contains(PasteboardTypes.png), "png synthesised")
         expect(!types.contains(Fingerprint.syncBaseNameFlavour), "bookkeeping flavour excluded")
     }
+
+    TestRunner.add("pasteboardItems preserves every legacy and MIME file URL") {
+        let legacyPaths = ["/tmp/a.txt", "/tmp/b.txt"]
+        let legacy = try! PropertyListSerialization.data(
+            fromPropertyList: legacyPaths,
+            format: .xml,
+            options: 0
+        )
+        let flavours = [
+            Flavour(itemIndex: 0, type: PasteboardTypes.legacyFilenames, data: legacy),
+            Flavour(itemIndex: 1, type: PasteboardTypes.mimeUriList, data: Data("file:///tmp/c.txt\r\nfile:///tmp/d.txt\r\n".utf8)),
+            Flavour(itemIndex: 2, type: PasteboardTypes.fileURL, data: Data("file:///tmp/e.txt".utf8)),
+            Flavour(itemIndex: 3, type: PasteboardTypes.fileURL, data: Data("file:///tmp/f.txt".utf8)),
+        ]
+        let pboard = NSPasteboard(name: .init("copyqmac-file-items-\(UUID().uuidString)"))
+        PasteboardBridge.write(flavours, to: pboard)
+        let snapshot = PasteboardBridge.snapshot(of: pboard)
+        let urls = FlavourDecoder.fileURLs(from: snapshot) ?? []
+        expectEqual(urls.map(\.path), legacyPaths + ["/tmp/c.txt", "/tmp/d.txt", "/tmp/e.txt", "/tmp/f.txt"])
+    }
+
+    TestRunner.add("a multi-file drag does not advertise a single file URL") {
+        MainActor.assumeIsolated {
+            let legacy = try! PropertyListSerialization.data(
+                fromPropertyList: ["/tmp/a.txt", "/tmp/b.txt"],
+                format: .xml,
+                options: 0
+            )
+            let entries: [Int64: ClipboardEntry] = [
+                1: ClipboardEntry(
+                    id: 1,
+                    createdAt: Date(),
+                    flavours: [Flavour(itemIndex: 0, type: PasteboardTypes.legacyFilenames, data: legacy)]
+                ),
+                2: ClipboardEntry(
+                    id: 2,
+                    createdAt: Date(),
+                    flavours: [
+                        Flavour(itemIndex: 0, type: PasteboardTypes.mimeUriList, data: Data("file:///tmp/c.txt\r\nfile:///tmp/d.txt\r\n".utf8))
+                    ]
+                ),
+            ]
+            let list = EntryListView(
+                rows: [makeRow(id: 1), makeRow(id: 2)],
+                rowsRevision: 1,
+                selection: SelectionState(),
+                singleClickActivates: false,
+                actions: EntryRowActions(entry: { entries[$0] }),
+                contextActions: .none,
+                onSelectionChange: { _ in },
+                onActivate: { _ in },
+                onCopy: { _ in },
+                onFocusChange: { _ in },
+                onRowBecameVisible: { _ in },
+                banner: nil,
+                onBannerAction: {},
+                onBannerDismiss: {}
+            )
+            let coordinator = list.makeCoordinator()
+            let table = EntryListView.makeTableView(coordinator: coordinator)
+            coordinator.attach(to: table)
+
+            for row in 0..<2 {
+                guard let writer = coordinator.tableView(table, pasteboardWriterForRow: row) as? NSPasteboardItem else {
+                    TestRunner.fail("writer\(row) must be NSPasteboardItem")
+                    return
+                }
+                expectNil(
+                    writer.data(forType: NSPasteboard.PasteboardType(PasteboardTypes.fileURL)),
+                    "a multi-file drag must not drop all but one file"
+                )
+            }
+        }
+    }
+
+    TestRunner.add("drag derivation ignores non-standard stored payloads") {
+        let data = Data(repeating: 0x41, count: 1_000_000)
+        guard let raw = QtCompression.compress(data) else {
+            TestRunner.fail("could not compress payload")
+            return
+        }
+        let customType = "com.example.custom-payload"
+        let flavours = [
+            Flavour(itemIndex: 0, type: PasteboardTypes.utf8Text, data: Data("visible".utf8)),
+            Flavour(itemIndex: 0, type: customType, rawData: raw, isCompressed: true),
+        ]
+        let item = NSPasteboardItem()
+        PasteboardBridge.attachDragTypes(from: flavours, to: item)
+        expectEqual(item.string(forType: .string), "visible")
+        expectNil(
+            item.data(forType: NSPasteboard.PasteboardType(customType)),
+            "non-standard payloads must not be materialised for a drag"
+        )
+    }
 }
