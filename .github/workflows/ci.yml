@@ -1,4 +1,4 @@
-# CI for copyq-macos.
+# CI for copyqmac.
 #
 # The pull-request gate. Every pull request that changes more than documentation
 # builds and tests the code in this repository through its own Makefile targets;
