@@ -159,7 +159,13 @@ Detailed reference for CopyQ Mac features, implementation behaviours, and data m
   confirmation only when it would rewrite or delete sync files, and the disk
   work is rolled back if the move itself fails. Copy copies the
   focused entry (the last one activated) without changing the rest of the
-  selection.
+  selection. Dragging a row out of the list instead copies its supported standard
+  macOS representations into a drag pasteboard: plain text, HTML or RTF, images, and
+  file URLs, with legacy type names attached where older apps expect them.
+  Multi-file entries keep every file and custom or bookkeeping payloads are not
+  exposed. Dropping the row on a tab chip still moves the selection because the
+  internal entry id travels with the standard types. See
+  [Architecture](architecture.md#paste-back-path) for the drag pasteboard path.
 - **Activation (CopyQ's History ▸ Activation).** Activating an item - a double
   click, Return, or Item ▸ Activate - always copies it to the clipboard and then
   runs the switches from Preferences ▸ History ▸ Activation in one fixed order:

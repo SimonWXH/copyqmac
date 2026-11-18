@@ -23,9 +23,9 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The pasteboard type a row drag publishes. The tab strip accepts it and then
-/// asks the model to move the current selection; the payload itself only has to
-/// prove the drag came from this list.
+/// The pasteboard type a row drag publishes alongside its standard payload.
+/// The tab strip accepts it and asks the model to move the current selection;
+/// the payload itself only has to prove the drag came from this list.
 enum EntryDrag {
     static let identifier = "com.copyqmac.entry-ids"
     static let pasteboardType = NSPasteboard.PasteboardType(identifier)
@@ -110,12 +110,21 @@ struct EntryRowActions {
     var togglePin: (Int64) -> Void
     var remove: (Int64) -> Void
     var thumbnail: (Int64) -> NSImage?
+    var entry: (Int64) -> ClipboardEntry?
 
-    static let none = EntryRowActions(
-        togglePin: { _ in },
-        remove: { _ in },
-        thumbnail: { _ in nil }
-    )
+    init(
+        togglePin: @escaping (Int64) -> Void = { _ in },
+        remove: @escaping (Int64) -> Void = { _ in },
+        thumbnail: @escaping (Int64) -> NSImage? = { _ in nil },
+        entry: @escaping (Int64) -> ClipboardEntry? = { _ in nil }
+    ) {
+        self.togglePin = togglePin
+        self.remove = remove
+        self.thumbnail = thumbnail
+        self.entry = entry
+    }
+
+    static let none = EntryRowActions()
 }
 
 /// Commands the row context menu offers beyond the row-specific ones.
@@ -396,8 +405,8 @@ struct EntryListView: NSViewRepresentable {
         tableView.focusRingType = .none
         tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         // Rows also drag onto the tab strip. The selection, not the row under
-        // the pointer, is what moves, so the drag source only needs to prove
-        // it came from this list.
+        // the pointer, is what moves, so the internal id travels with the
+        // standard types attached for external drops.
         tableView.setDraggingSourceOperationMask(.copy, forLocal: true)
         tableView.setDraggingSourceOperationMask(.copy, forLocal: false)
         tableView.target = coordinator
@@ -779,13 +788,35 @@ struct EntryListView: NSViewRepresentable {
             )
         }
 
-        // MARK: Dragging rows onto a tab
+        // MARK: Dragging rows onto a tab or external apps
 
         func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
             guard parent.rows.indices.contains(row) else { return nil }
+            let entryID = parent.rows[row].id
             let item = NSPasteboardItem()
-            item.setString(String(parent.rows[row].id), forType: EntryDrag.pasteboardType)
+            item.setString(String(entryID), forType: EntryDrag.pasteboardType)
+
+            if let entry = parent.actions.entry(entryID) {
+                PasteboardBridge.attachDragTypes(from: entry.flavours, to: item)
+            }
             return item
+        }
+
+        func tableView(
+            _ tableView: NSTableView,
+            draggingSession session: NSDraggingSession,
+            willBeginAt screenPoint: NSPoint,
+            forRowIndexes rowIndexes: IndexSet
+        ) {
+            writeDragData(forRowIndexes: rowIndexes, to: session.draggingPasteboard)
+        }
+
+        func writeDragData(forRowIndexes rowIndexes: IndexSet, to pasteboard: NSPasteboard) {
+            let entries = rowIndexes.compactMap { row -> ClipboardEntry? in
+                guard parent.rows.indices.contains(row) else { return nil }
+                return parent.actions.entry(parent.rows[row].id)
+            }
+            PasteboardBridge.writeDragData(for: entries, to: pasteboard)
         }
 
         // A single click activates immediately when configured. Click-sequence

@@ -810,12 +810,20 @@ The previously frontmost application is tracked by `FrontmostAppTracker`, which
 updates on `NSWorkspace.didActivateApplicationNotification` and ignores this
 app's own process. Reactivating the target (rather than the app re-hiding) is
 why the window is a normal window and why the target is captured before the
-window takes focus. When writing flavours back to the pasteboard, `PasteboardBridge.write`
-filters out private sync bookkeeping metadata (`application/x-copyq-itemsync-*`)
-and still enriches any CopyQ MIME-named flavour left by an older import
-(`public.utf8-plain-text`, `public.html`, `public.rtf`, `public.png`,
-`public.file-url`). New imports already store the native names, so this only
-covers rows captured before the import translation existed.
+window takes focus. `PasteboardBridge.write` filters out private sync bookkeeping
+metadata (`application/x-copyq-itemsync-*`) and writes every remaining stored
+flavour, including custom types, with its original bytes. It also fills in native
+types when an entry only has a MIME or legacy name: text, HTML, RTF, PNG, JPEG,
+TIFF, GIF, BMP, HEIC, and one `public.file-url` per file from `text/uri-list` or
+`NSFilenamesPboardType` without duplicating URLs already stored natively. Import
+translation handles the common text and PNG names up front, so this enrichment
+mainly covers older imports and formats the shared translation table does not map.
+
+A row dragged out of the list uses a separate pasteboard path: its writer and
+`tableView(_:draggingSession:willBeginAt:forRowIndexes:)` attach standard and
+legacy representations for external apps while preserving `com.copyqmac.entry-ids`
+for internal tab drops. Bookkeeping and unknown custom payloads are excluded from
+the drag, and each URL in a multi-file entry gets its own `public.file-url` item.
 
 ### Paste as Plain Text
 
@@ -1062,7 +1070,9 @@ menu-bar item available.
   collapse to one row, Shift extends, Command-A selects all, Escape clears a
   multi-selection before the window would hide).
   Rows drag with a private pasteboard type that the tab chips accept, which is
-  how a whole selection moves to another tab.
+  how a whole selection moves to another tab. The same writer feeds external
+  drags; their pasteboard contents are described in
+  [Paste-back path](#paste-back-path).
 - The list scrolls only when the selected row is not fully inside the viewport
   (`SelectionRevealPolicy`). After a capture or tab change `AppModel` asks for a
   reveal, so a newly captured entry - and a selection pushed down by it - stays

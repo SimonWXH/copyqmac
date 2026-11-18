@@ -69,7 +69,8 @@ struct ItemListView: View {
                             guard let entry = model.entry(id: id) else { return }
                             model.remove(entry)
                         },
-                        thumbnail: { id in model.rowThumbnail(for: id) }
+                        thumbnail: { id in model.rowThumbnail(for: id) },
+                        entry: { id in model.entry(id: id) }
                     ),
                     contextActions: EntryContextActions(
                         newItem: { model.requestNewItem() },
