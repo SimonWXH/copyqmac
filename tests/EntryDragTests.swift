@@ -530,6 +530,45 @@ func registerEntryDragTests() {
         expectEqual(urls.map(\.path), legacyPaths + ["/tmp/c.txt", "/tmp/d.txt", "/tmp/e.txt", "/tmp/f.txt"])
     }
 
+    TestRunner.add("derived file URLs do not duplicate native URLs across items") {
+        let shared = ["/tmp/shared-a.txt", "/tmp/shared-b.txt"]
+        let legacy = try! PropertyListSerialization.data(
+            fromPropertyList: shared,
+            format: .xml,
+            options: 0
+        )
+        let flavours = [
+            Flavour(itemIndex: 0, type: PasteboardTypes.legacyFilenames, data: legacy),
+            Flavour(itemIndex: 0, type: PasteboardTypes.fileURL, data: Data("file:///tmp/shared-a.txt".utf8)),
+            Flavour(itemIndex: 1, type: PasteboardTypes.fileURL, data: Data("file:///tmp/shared-b.txt\r\n".utf8)),
+        ]
+
+        let pboard = NSPasteboard(name: .init("copyqmac-file-dedupe-\(UUID().uuidString)"))
+        PasteboardBridge.write(flavours, to: pboard)
+        let snapshot = PasteboardBridge.snapshot(of: pboard)
+        expectEqual((FlavourDecoder.fileURLs(from: snapshot) ?? []).map(\.path), shared)
+        expectEqual(snapshot.filter { $0.type == PasteboardTypes.fileURL }.count, 2)
+
+        let dragPboard = NSPasteboard(name: .init("copyqmac-file-drag-dedupe-\(UUID().uuidString)"))
+        PasteboardBridge.writeDragData(
+            for: [ClipboardEntry(id: 77, createdAt: Date(), flavours: flavours)],
+            to: dragPboard
+        )
+        let dragSnapshot = PasteboardBridge.snapshot(of: dragPboard)
+        expectEqual((FlavourDecoder.fileURLs(from: dragSnapshot) ?? []).map(\.path), shared)
+        expectEqual(dragSnapshot.filter { $0.type == PasteboardTypes.fileURL }.count, 2)
+
+        let nativeData = Data("file:///tmp/native.txt\r\n".utf8)
+        let legacyURLs = Data("file:///tmp/native.txt\r\nfile:///tmp/other.txt\r\n".utf8)
+        let item = NSPasteboardItem()
+        PasteboardBridge.attachDragTypes(from: [
+            Flavour(itemIndex: 0, type: PasteboardTypes.mimeUriList, data: legacyURLs),
+            Flavour(itemIndex: 1, type: PasteboardTypes.fileURL, data: nativeData),
+        ], to: item)
+        expectEqual(item.data(forType: .init(PasteboardTypes.fileURL)), nativeData)
+        expectNil(item.data(forType: .init(PasteboardTypes.utf8Text)))
+    }
+
     TestRunner.add("a multi-file drag produces separate file items and legacy filenames on the drag pasteboard") {
         MainActor.assumeIsolated {
             let legacyPaths = ["/tmp/a.txt", "/tmp/b.txt"]

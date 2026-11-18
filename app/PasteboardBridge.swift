@@ -45,6 +45,11 @@ public enum PasteboardBridge {
         makePasteboardItems(from: flavours, allowedTypes: nil)
     }
 
+    private static func nativeFileURLPaths(in flavours: [Flavour]) -> Set<String> {
+        let native = flavours.filter { $0.type == PasteboardTypes.fileURL }
+        return Set((FlavourDecoder.fileURLs(from: native) ?? []).map(\.standardizedFileURL.path))
+    }
+
     private static func makePasteboardItems(
         from flavours: [Flavour],
         allowedTypes: Set<String>?
@@ -52,12 +57,16 @@ public enum PasteboardBridge {
         let cleanFlavours = flavours.filter { flavour in
             !Fingerprint.isBookkeepingFlavour(flavour.type)
         }
+        let nativeURLPaths = nativeFileURLPaths(in: cleanFlavours)
         let grouped = Dictionary(grouping: cleanFlavours, by: \.itemIndex)
         return grouped.keys.sorted().flatMap { index in
             let itemFlavours = grouped[index] ?? []
             var items = [NSPasteboardItem()]
             var fileURLData: [Data] = []
-            let representations = standardPasteboardFlavours(for: itemFlavours).filter { flavour in
+            let representations = standardPasteboardFlavours(
+                for: itemFlavours,
+                existingNativeURLs: nativeURLPaths
+            ).filter { flavour in
                 allowedTypes?.contains(flavour.type) ?? true
             }
             for flavour in representations where flavour.type != PasteboardTypes.fileURL {
@@ -77,7 +86,10 @@ public enum PasteboardBridge {
         }
     }
 
-    private static func standardPasteboardFlavours(for flavours: [Flavour]) -> [Flavour] {
+    private static func standardPasteboardFlavours(
+        for flavours: [Flavour],
+        existingNativeURLs: Set<String>
+    ) -> [Flavour] {
         var result = flavours
         let existingTypes = Set(flavours.map(\.type))
         let firstOfType: (String) -> Flavour? = { type in
@@ -128,14 +140,10 @@ public enum PasteboardBridge {
 
         let urls = FlavourDecoder.fileURLs(from: flavours) ?? []
         if !urls.isEmpty {
-            let existingURLs: Set<String> = Set(
-                flavours.filter { $0.type == PasteboardTypes.fileURL }
-                    .compactMap { String(data: $0.data, encoding: .utf8) }
-            )
             let baseIndex = flavours.first?.itemIndex ?? 0
-            for url in urls {
+            for url in urls where !existingNativeURLs.contains(url.standardizedFileURL.path) {
                 let str = url.absoluteString
-                if !existingURLs.contains(str), let data = str.data(using: .utf8) {
+                if let data = str.data(using: .utf8) {
                     result.append(Flavour(itemIndex: baseIndex, type: PasteboardTypes.fileURL, data: data))
                 }
             }
@@ -143,23 +151,14 @@ public enum PasteboardBridge {
         return result
     }
 
-    private static func fileURLs(from uriList: String) -> [URL] {
-        uriList.split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty && !$0.hasPrefix("#") }
-            .compactMap { URL(string: $0) }
-            .filter(\.isFileURL)
-    }
-
-    private static func filePaths(from filenames: Data) -> [String]? {
-        try? PropertyListSerialization.propertyList(from: filenames, options: [], format: nil) as? [String]
-    }
-
     /// Attaches the standard drag representation of an entry to a single
     /// pasteboard item without materialising unrelated stored payloads.
     public static func attachDragTypes(from flavours: [Flavour], to item: NSPasteboardItem) {
         let cleanFlavours = flavours.filter { !Fingerprint.isBookkeepingFlavour($0.type) }
-        let standardFlavours = standardPasteboardFlavours(for: cleanFlavours)
+        let standardFlavours = standardPasteboardFlavours(
+            for: cleanFlavours,
+            existingNativeURLs: nativeFileURLPaths(in: cleanFlavours)
+        )
         for flavour in standardFlavours where standardDragTypes.contains(flavour.type) {
             if item.data(forType: NSPasteboard.PasteboardType(flavour.type)) == nil {
                 item.setData(flavour.data, forType: NSPasteboard.PasteboardType(flavour.type))
