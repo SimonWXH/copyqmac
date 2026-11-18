@@ -394,7 +394,7 @@ func registerEntryDragTests() {
         expectEqual(urls.map(\.path), legacyPaths + ["/tmp/c.txt", "/tmp/d.txt", "/tmp/e.txt", "/tmp/f.txt"])
     }
 
-    TestRunner.add("a multi-file drag does not advertise a single file URL") {
+    TestRunner.add("a multi-file drag attaches file URL representation") {
         MainActor.assumeIsolated {
             let legacy = try! PropertyListSerialization.data(
                 fromPropertyList: ["/tmp/a.txt", "/tmp/b.txt"],
@@ -435,17 +435,35 @@ func registerEntryDragTests() {
             let table = EntryListView.makeTableView(coordinator: coordinator)
             coordinator.attach(to: table)
 
-            for row in 0..<2 {
-                guard let writer = coordinator.tableView(table, pasteboardWriterForRow: row) as? NSPasteboardItem else {
-                    TestRunner.fail("writer\(row) must be NSPasteboardItem")
-                    return
-                }
-                expectNil(
-                    writer.data(forType: NSPasteboard.PasteboardType(PasteboardTypes.fileURL)),
-                    "a multi-file drag must not drop all but one file"
-                )
+            guard let writer0 = coordinator.tableView(table, pasteboardWriterForRow: 0) as? NSPasteboardItem,
+                  let data0 = writer0.data(forType: NSPasteboard.PasteboardType(PasteboardTypes.fileURL)),
+                  let str0 = String(data: data0, encoding: .utf8) else {
+                TestRunner.fail("writer0 must have valid file URL")
+                return
             }
+            expectEqual(str0, "file:///tmp/a.txt")
+
+            guard let writer1 = coordinator.tableView(table, pasteboardWriterForRow: 1) as? NSPasteboardItem,
+                  let data1 = writer1.data(forType: NSPasteboard.PasteboardType(PasteboardTypes.fileURL)),
+                  let str1 = String(data: data1, encoding: .utf8) else {
+                TestRunner.fail("writer1 must have valid file URL")
+                return
+            }
+            expectEqual(str1, "file:///tmp/c.txt")
         }
+    }
+
+    TestRunner.add("drag derivation supports legacy HTML and RTF representations") {
+        let htmlContent = "<b>legacy html</b>"
+        let rtfContent = "{\\rtf1 legacy rtf}"
+        let flavours = [
+            Flavour(itemIndex: 0, type: PasteboardTypes.legacyHTML, data: Data(htmlContent.utf8)),
+            Flavour(itemIndex: 0, type: PasteboardTypes.legacyRTF, data: Data(rtfContent.utf8)),
+        ]
+        let item = NSPasteboardItem()
+        PasteboardBridge.attachDragTypes(from: flavours, to: item)
+        expectEqual(item.string(forType: .html), htmlContent)
+        expectEqual(item.string(forType: .rtf), rtfContent)
     }
 
     TestRunner.add("drag derivation ignores non-standard stored payloads") {

@@ -85,11 +85,11 @@ public enum PasteboardBridge {
             }
         }
         if !existingTypes.contains(PasteboardTypes.html),
-           let source = firstOfType(PasteboardTypes.mimeHtml) {
+           let source = firstOfType(PasteboardTypes.mimeHtml) ?? firstOfType(PasteboardTypes.legacyHTML) {
             result.append(Flavour(itemIndex: source.itemIndex, type: PasteboardTypes.html, data: source.data))
         }
         if !existingTypes.contains(PasteboardTypes.rtf),
-           let source = firstOfType(PasteboardTypes.mimeRtf) {
+           let source = firstOfType(PasteboardTypes.mimeRtf) ?? firstOfType(PasteboardTypes.legacyRTF) {
             result.append(Flavour(itemIndex: source.itemIndex, type: PasteboardTypes.rtf, data: source.data))
         }
         if !existingTypes.contains(PasteboardTypes.png),
@@ -134,22 +134,15 @@ public enum PasteboardBridge {
     /// pasteboard item without materialising unrelated stored payloads.
     public static func attachDragTypes(from flavours: [Flavour], to item: NSPasteboardItem) {
         let cleanFlavours = flavours.filter { !Fingerprint.isBookkeepingFlavour($0.type) }
-        let grouped = Dictionary(grouping: cleanFlavours, by: \.itemIndex)
-        guard let leaderIndex = grouped.keys.sorted().first,
-              let leaderFlavours = grouped[leaderIndex] else { return }
-
-        for flavour in standardPasteboardFlavours(for: leaderFlavours)
-        where externalDragTypes.contains(flavour.type) && flavour.type != PasteboardTypes.fileURL {
-            item.setData(flavour.data, forType: NSPasteboard.PasteboardType(flavour.type))
-        }
-
-        let fileURLs = FlavourDecoder.fileURLs(from: cleanFlavours) ?? []
-        if fileURLs.count == 1, let data = fileURLs[0].absoluteString.data(using: .utf8) {
-            item.setData(data, forType: NSPasteboard.PasteboardType(PasteboardTypes.fileURL))
+        let standardFlavours = standardPasteboardFlavours(for: cleanFlavours)
+        for flavour in standardFlavours where standardDragTypes.contains(flavour.type) {
+            if item.data(forType: NSPasteboard.PasteboardType(flavour.type)) == nil {
+                item.setData(flavour.data, forType: NSPasteboard.PasteboardType(flavour.type))
+            }
         }
     }
 
-    private static let externalDragTypes: Set<String> = [
+    private static let standardDragTypes: Set<String> = [
         PasteboardTypes.utf8Text, PasteboardTypes.utf16Text, PasteboardTypes.utf16ExternalText,
         PasteboardTypes.plainText,
         PasteboardTypes.html, PasteboardTypes.rtf,
