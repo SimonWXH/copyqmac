@@ -267,6 +267,7 @@ Tools. `tests/` contains a small assertion harness and the suites:
   rewriting without orphans, protected path guards, and rotating sandboxed sync
   log
 - CopyQ sync folder watcher: FSEvents watching, group completeness and stability,
+  skipping Syncthing `.sync-conflict-` files in both enumeration and event scanning,
   durable echo-loop prevention that still sees upstream edits, data-derived stem
   ownership and content dedupe, newest-wins content updates, discarded-side
   logging, burst handling, and pause/resume gating

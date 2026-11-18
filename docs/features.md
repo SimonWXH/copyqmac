@@ -240,7 +240,8 @@ Detailed reference for CopyQ Mac features, implementation behaviours, and data m
   switch.
 - **Sync folder watcher.** Background FSEvents directory watcher that
   automatically imports items synced from other machines (e.g. Fedora) once complete
-  and settled, with per-tab folder routing that is never diverted to the capture tab,
+  and settled, skipping Syncthing `.sync-conflict-` copies instead of importing them
+  as ghost entries, with per-tab folder routing that is never diverted to the capture tab,
   dates resolved as the later of the file-name stamp and the file modification time,
   durable per-folder echo-loop prevention, content deduplication, and no per-tab
   gating beyond the folder itself.

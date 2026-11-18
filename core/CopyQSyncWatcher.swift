@@ -668,6 +668,11 @@ public final class CopyQSyncWatcher: @unchecked Sendable {
         self.retryTimer = timer
     }
 
+    /// True when `name` matches a Syncthing sync-conflict file pattern.
+    static func isSyncConflictFileName(_ name: String) -> Bool {
+        CopyQSyncFolder.isSyncConflictFileName(name)
+    }
+
     /// True when `name` is an in-flight sync or temporary file rather than an
     /// item file.
     static func isTemporaryFileName(_ name: String) -> Bool {
@@ -680,9 +685,9 @@ public final class CopyQSyncWatcher: @unchecked Sendable {
     }
 
     /// The item stem a file name belongs to, or `nil` for hidden, temporary,
-    /// and unknown files.
+    /// sync-conflict, and unknown files.
     static func itemStem(ofFileName name: String) -> String? {
-        guard !name.hasPrefix("."), !isTemporaryFileName(name) else { return nil }
+        guard !name.hasPrefix("."), !isTemporaryFileName(name), !isSyncConflictFileName(name) else { return nil }
         guard let ext = CopyQFormat.matchedExtension(forFileName: name),
               name.count > ext.count
         else { return nil }
@@ -708,6 +713,7 @@ public final class CopyQSyncWatcher: @unchecked Sendable {
         in folderPath: String,
         fileManager: FileManager = .default
     ) -> Bool {
+        guard !isSyncConflictFileName(stem) else { return false }
         let normalized = CopyQSyncBridge.normalizePath(folderPath)
         var suffixes = Set(CopyQFormat.defaultExtensions.map(\.ext))
         suffixes.insert(CopyQFormat.dataFileSuffix)
@@ -736,6 +742,8 @@ public final class CopyQSyncWatcher: @unchecked Sendable {
             let values = try? URL(fileURLWithPath: fullPath).resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey])
             guard values?.isRegularFile == true else { continue }
             let mtime = values?.contentModificationDate ?? Date.distantPast
+
+            guard !isSyncConflictFileName(filename) else { continue }
 
             // Check for temporary / in-flight file patterns:
             // .syncthing.<filename>.tmp, <stem>.<ext>.tmp, <stem>.tmp, <stem>.part, <stem>.crdownload, etc.
@@ -809,6 +817,7 @@ public final class CopyQSyncWatcher: @unchecked Sendable {
             return true
         }
         for filename in filenames {
+            guard !isSyncConflictFileName(filename) else { continue }
             let isTemp = isTemporaryFileName(filename)
             guard isTemp else { continue }
 
