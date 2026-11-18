@@ -42,7 +42,15 @@ TEST_APP_SOURCES := app/AppModel.swift app/EntryListView.swift app/RichTextPrese
                     app/StyledTextEditor.swift app/RichTextEditing.swift \
                     app/NoticeBannerView.swift app/NoticeTimer.swift app/AppLog.swift \
                     app/StatusItemNotice.swift app/AppearanceManager.swift app/DesignTokens.swift \
-                    app/MainWindowView.swift app/WindowKeyMonitor.swift app/NoteFocusMonitor.swift app/MainWindowController.swift
+                    app/MainWindowView.swift app/WindowKeyMonitor.swift app/NoteFocusMonitor.swift app/MainWindowController.swift \
+                    app/LayoutAView.swift app/LayoutBView.swift app/SidebarToggleButtonView.swift \
+                    app/SidebarResizeHandleView.swift app/InspectorResizeHandleView.swift \
+                    app/SidebarTabView.swift app/SidebarTabRowView.swift app/TabContextMenuView.swift \
+                    app/InspectorMetadataBlockView.swift app/InspectorPreviewPaneView.swift \
+                    app/InspectorNotePaneView.swift app/InspectorDividerView.swift \
+                    app/TabBarView.swift app/TabChipView.swift app/FilterBarView.swift \
+                    app/ItemListView.swift app/PreviewPaneView.swift app/StatusBarView.swift \
+                    app/TextEditSheetView.swift app/RichTextToolbarView.swift
 SYNC_SOURCES  := core/QtCompression.swift $(wildcard core/CopyQSync/Sources/CopyQSync/*.swift)
 
 FRAMEWORKS := -framework AppKit -framework SwiftUI -framework Carbon \
