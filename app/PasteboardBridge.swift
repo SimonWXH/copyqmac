@@ -183,49 +183,44 @@ public enum PasteboardBridge {
         PasteboardTypes.legacyText,
     ]
 
-    /// Writes legacy pasteboard representations directly to the pasteboard,
-    /// ensuring older pasteboard consumers and Finder drops receive complete
-    /// filename lists and rich-text flavours.
-    public static func writeLegacyTypes(from flavours: [Flavour], to pasteboard: NSPasteboard) {
-        let existingTypes = Set(pasteboard.types?.map(\.rawValue) ?? [])
-
-        if !existingTypes.contains(PasteboardTypes.legacyFilenames) {
-            let urls = FlavourDecoder.fileURLs(from: flavours) ?? []
-            if !urls.isEmpty {
-                let paths = urls.map(\.path)
-                pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyFilenames)], owner: nil)
-                pasteboard.setPropertyList(paths, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyFilenames))
-            }
+    /// Writes legacy representations for a drag. Rich text and plain text come
+    /// only from the first item's flavours, while filenames cover every dragged
+    /// file.
+    private static func attachLegacyTypes(from entries: [ClipboardEntry], to pasteboard: NSPasteboard) {
+        let firstFlavours: [Flavour]
+        if let firstEntry = entries.first,
+           let firstIndex = firstEntry.flavours.map(\.itemIndex).min() {
+            firstFlavours = firstEntry.flavours.filter { $0.itemIndex == firstIndex }
+        } else {
+            firstFlavours = []
         }
 
-        if !existingTypes.contains(PasteboardTypes.legacyHTML) {
-            if let htmlFlavour = flavours.first(where: {
-                $0.type == PasteboardTypes.html || $0.type == PasteboardTypes.mimeHtml || $0.type == PasteboardTypes.legacyHTML
-            }) {
-                pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyHTML)], owner: nil)
-                pasteboard.setData(htmlFlavour.data, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyHTML))
-            }
+        let urls = FlavourDecoder.fileURLs(from: entries.flatMap(\.flavours)) ?? []
+        if !urls.isEmpty {
+            pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyFilenames)], owner: nil)
+            pasteboard.setPropertyList(urls.map(\.path), forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyFilenames))
         }
 
-        if !existingTypes.contains(PasteboardTypes.legacyRTF) {
-            if let rtfFlavour = flavours.first(where: {
-                $0.type == PasteboardTypes.rtf || $0.type == PasteboardTypes.mimeRtf || $0.type == PasteboardTypes.legacyRTF
-            }) {
-                pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyRTF)], owner: nil)
-                pasteboard.setData(rtfFlavour.data, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyRTF))
-            }
+        if let flavour = firstFlavours.first(where: {
+            $0.type == PasteboardTypes.html || $0.type == PasteboardTypes.mimeHtml || $0.type == PasteboardTypes.legacyHTML
+        }) {
+            pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyHTML)], owner: nil)
+            pasteboard.setData(flavour.data, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyHTML))
         }
 
-        if !existingTypes.contains(PasteboardTypes.legacyText) {
-            if let textFlavour = flavours.first(where: {
-                $0.type == PasteboardTypes.utf8Text || $0.type == PasteboardTypes.plainText ||
-                $0.type == PasteboardTypes.mimeText || $0.type == PasteboardTypes.legacyText
-            }) {
-                if let str = String(data: textFlavour.data, encoding: .utf8) {
-                    pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyText)], owner: nil)
-                    pasteboard.setString(str, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyText))
-                }
-            }
+        if let flavour = firstFlavours.first(where: {
+            $0.type == PasteboardTypes.rtf || $0.type == PasteboardTypes.mimeRtf || $0.type == PasteboardTypes.legacyRTF
+        }) {
+            pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyRTF)], owner: nil)
+            pasteboard.setData(flavour.data, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyRTF))
+        }
+
+        if let flavour = firstFlavours.first(where: {
+            $0.type == PasteboardTypes.utf8Text || $0.type == PasteboardTypes.plainText ||
+            $0.type == PasteboardTypes.mimeText || $0.type == PasteboardTypes.legacyText
+        }), let str = String(data: flavour.data, encoding: .utf8) {
+            pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyText)], owner: nil)
+            pasteboard.setString(str, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyText))
         }
     }
 
@@ -234,10 +229,8 @@ public enum PasteboardBridge {
     /// one item per URL and internal drag identity is preserved.
     public static func writeDragData(for entries: [ClipboardEntry], to pasteboard: NSPasteboard) {
         var items: [NSPasteboardItem] = []
-        var allFlavours: [Flavour] = []
 
         for entry in entries {
-            allFlavours.append(contentsOf: entry.flavours)
             let entryItems = makePasteboardItems(
                 from: entry.flavours,
                 allowedTypes: standardDragTypes.union(legacyDragTypes)
@@ -256,7 +249,7 @@ public enum PasteboardBridge {
         if !items.isEmpty {
             pasteboard.writeObjects(items)
         }
-        writeLegacyTypes(from: allFlavours, to: pasteboard)
+        attachLegacyTypes(from: entries, to: pasteboard)
     }
 
     /// Writes flavours back to the pasteboard, rebuilding the item structure.
@@ -270,7 +263,6 @@ public enum PasteboardBridge {
         if !items.isEmpty {
             pasteboard.writeObjects(items)
         }
-        writeLegacyTypes(from: flavours, to: pasteboard)
         return pasteboard.changeCount
     }
 }

@@ -355,19 +355,38 @@ func registerEntryDragTests() {
         }
     }
 
-    TestRunner.add("paste-back restores non-standard stored flavour bytes") {
-        let customData = Data([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x37])
+    TestRunner.add("paste-back restores non-standard stored flavour bytes without derived legacy types") {
+        let pdfData = Data([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x37])
         let webArchiveData = Data(repeating: 0x5A, count: 32)
+        let htmlData = Data("<b>label</b>".utf8)
+        let rtfData = Data(#"{\rtf1 label}"#.utf8)
+        let fileURLData = Data("file:///tmp/label.txt".utf8)
         let flavours = [
             Flavour(itemIndex: 0, type: PasteboardTypes.utf8Text, data: Data("label".utf8)),
-            Flavour(itemIndex: 0, type: "com.adobe.pdf", data: customData),
+            Flavour(itemIndex: 0, type: "com.adobe.pdf", data: pdfData),
             Flavour(itemIndex: 0, type: "com.apple.webarchive", data: webArchiveData),
+            Flavour(itemIndex: 0, type: PasteboardTypes.html, data: htmlData),
+            Flavour(itemIndex: 0, type: PasteboardTypes.rtf, data: rtfData),
+            Flavour(itemIndex: 0, type: PasteboardTypes.fileURL, data: fileURLData),
         ]
         let pboard = NSPasteboard(name: .init("copyqmac-pasteback-all-flavours-\(UUID().uuidString)"))
         PasteboardBridge.write(flavours, to: pboard)
-        expectEqual(pboard.data(forType: .init("com.adobe.pdf")), customData)
+        expectEqual(pboard.data(forType: .init("com.adobe.pdf")), pdfData)
         expectEqual(pboard.data(forType: .init("com.apple.webarchive")), webArchiveData)
         expectEqual(pboard.string(forType: .init(PasteboardTypes.utf8Text)), "label")
+        expectEqual(pboard.data(forType: .init(PasteboardTypes.html)), htmlData)
+        expectEqual(pboard.data(forType: .init(PasteboardTypes.rtf)), rtfData)
+        expectEqual(pboard.data(forType: .init(PasteboardTypes.fileURL)), fileURLData)
+        let types = Set(pboard.types?.map(\.rawValue) ?? [])
+        expect(
+            types.isSuperset(of: [
+                PasteboardTypes.utf8Text, "com.adobe.pdf", "com.apple.webarchive",
+                PasteboardTypes.html, PasteboardTypes.rtf, PasteboardTypes.fileURL,
+            ]),
+            "paste-back must preserve every stored flavour"
+        )
+        expectNil(pboard.data(forType: .init(PasteboardTypes.legacyHTML)))
+        expectNil(pboard.data(forType: .init(PasteboardTypes.legacyRTF)))
     }
 
     TestRunner.add("PasteboardBridge.pasteboardItems converts MIME flavours and strips bookkeeping") {
@@ -489,6 +508,44 @@ func registerEntryDragTests() {
         expectEqual(pboard.string(forType: .rtf), rtfContent)
         expectEqual(pboard.data(forType: .init(PasteboardTypes.legacyHTML)), Data(htmlContent.utf8))
         expectEqual(pboard.data(forType: .rtf), Data(rtfContent.utf8))
+    }
+
+    TestRunner.add("drag legacy rich text comes from the first item only") {
+        let laterHTML = "<i>later html</i>"
+        let otherRTF = "{\\rtf1 other rtf}"
+        let entries = [
+            ClipboardEntry(
+                id: 1,
+                createdAt: Date(),
+                flavours: [
+                    Flavour(itemIndex: 0, type: PasteboardTypes.utf8Text, data: Data("first".utf8)),
+                    Flavour(itemIndex: 1, type: PasteboardTypes.html, data: Data(laterHTML.utf8)),
+                ]
+            ),
+            ClipboardEntry(
+                id: 2,
+                createdAt: Date(),
+                flavours: [
+                    Flavour(itemIndex: 0, type: PasteboardTypes.utf8Text, data: Data("second".utf8)),
+                    Flavour(itemIndex: 0, type: PasteboardTypes.rtf, data: Data(otherRTF.utf8)),
+                ]
+            ),
+        ]
+        let pboard = NSPasteboard(name: .init("copyqmac-drag-rich-items-\(UUID().uuidString)"))
+        PasteboardBridge.writeDragData(for: entries, to: pboard)
+        let items = pboard.pasteboardItems ?? []
+        expectEqual(items.count, 3)
+        expectEqual(items[0].string(forType: .string), "first")
+        expectNil(
+            pboard.data(forType: .init(PasteboardTypes.legacyHTML)),
+            "the first item must not inherit a later item's HTML"
+        )
+        expectNil(
+            pboard.data(forType: .init(PasteboardTypes.legacyRTF)),
+            "the first item must not inherit another entry's RTF"
+        )
+        expectEqual(items[1].data(forType: .init(PasteboardTypes.html)), Data(laterHTML.utf8))
+        expectEqual(items[2].data(forType: .init(PasteboardTypes.rtf)), Data(otherRTF.utf8))
     }
 
     TestRunner.add("drag derivation preserves non-PNG image formats (JPEG, TIFF, GIF, HEIC)") {
