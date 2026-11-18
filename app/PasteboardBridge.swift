@@ -38,18 +38,16 @@ public enum PasteboardBridge {
         return flavours
     }
 
-    /// Writes flavours back to the pasteboard, rebuilding the item structure.
-    ///
-    /// Returns the pasteboard `changeCount` after the write so the watcher can
-    /// recognise and ignore its own write.
-    @discardableResult
-    public static func write(_ flavours: [Flavour], to pasteboard: NSPasteboard = .general) -> Int {
+    /// Builds NSPasteboardItems for the given flavours, synthesising standard
+    /// pasteboard types (UTF-8 plain text, HTML, RTF, PNG, file URL) when only
+    /// MIME or legacy flavours are present.
+    public static func pasteboardItems(from flavours: [Flavour]) -> [NSPasteboardItem] {
         let cleanFlavours = flavours.filter { flavour in
             !Fingerprint.isBookkeepingFlavour(flavour.type)
         }
 
         let grouped = Dictionary(grouping: cleanFlavours, by: \.itemIndex)
-        let items: [NSPasteboardItem] = grouped.keys.sorted().map { index in
+        return grouped.keys.sorted().map { index in
             var itemFlavours = grouped[index] ?? []
             let itemTypes = Set(itemFlavours.map(\.type))
 
@@ -58,6 +56,10 @@ public enum PasteboardBridge {
                     $0.type == PasteboardTypes.mimeText || $0.type == PasteboardTypes.mimeTextUtf8
                 }) {
                     itemFlavours.append(Flavour(itemIndex: index, type: PasteboardTypes.utf8Text, data: textFlavour.data))
+                } else if let plainFlavour = itemFlavours.first(where: {
+                    $0.type == PasteboardTypes.plainText || $0.type == PasteboardTypes.legacyText
+                }) {
+                    itemFlavours.append(Flavour(itemIndex: index, type: PasteboardTypes.utf8Text, data: plainFlavour.data))
                 }
             }
             if !itemTypes.contains(PasteboardTypes.html) {
@@ -88,6 +90,15 @@ public enum PasteboardBridge {
                             }
                         }
                     }
+                } else if let legacyFlavour = itemFlavours.first(where: { $0.type == PasteboardTypes.legacyFilenames }),
+                          let list = try? PropertyListSerialization.propertyList(
+                              from: legacyFlavour.data, options: [], format: nil
+                          ) as? [String],
+                          let firstPath = list.first {
+                    let url = URL(fileURLWithPath: firstPath)
+                    if let urlData = url.absoluteString.data(using: .utf8) {
+                        itemFlavours.append(Flavour(itemIndex: index, type: PasteboardTypes.fileURL, data: urlData))
+                    }
                 }
             }
 
@@ -97,7 +108,28 @@ public enum PasteboardBridge {
             }
             return item
         }
+    }
 
+    /// Attaches standard pasteboard representations derived from `flavours` onto an
+    /// existing `NSPasteboardItem` (e.g. for drag-out to external apps).
+    public static func attachStandardTypes(from flavours: [Flavour], to item: NSPasteboardItem) {
+        let items = pasteboardItems(from: flavours)
+        guard let leaderItem = items.first else { return }
+        for type in leaderItem.types {
+            guard !type.rawValue.contains("/") else { continue }
+            if let data = leaderItem.data(forType: type) {
+                item.setData(data, forType: type)
+            }
+        }
+    }
+
+    /// Writes flavours back to the pasteboard, rebuilding the item structure.
+    ///
+    /// Returns the pasteboard `changeCount` after the write so the watcher can
+    /// recognise and ignore its own write.
+    @discardableResult
+    public static func write(_ flavours: [Flavour], to pasteboard: NSPasteboard = .general) -> Int {
+        let items = pasteboardItems(from: flavours)
         pasteboard.clearContents()
         if !items.isEmpty {
             pasteboard.writeObjects(items)

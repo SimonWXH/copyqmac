@@ -110,12 +110,21 @@ struct EntryRowActions {
     var togglePin: (Int64) -> Void
     var remove: (Int64) -> Void
     var thumbnail: (Int64) -> NSImage?
+    var entry: (Int64) -> ClipboardEntry?
 
-    static let none = EntryRowActions(
-        togglePin: { _ in },
-        remove: { _ in },
-        thumbnail: { _ in nil }
-    )
+    init(
+        togglePin: @escaping (Int64) -> Void = { _ in },
+        remove: @escaping (Int64) -> Void = { _ in },
+        thumbnail: @escaping (Int64) -> NSImage? = { _ in nil },
+        entry: @escaping (Int64) -> ClipboardEntry? = { _ in nil }
+    ) {
+        self.togglePin = togglePin
+        self.remove = remove
+        self.thumbnail = thumbnail
+        self.entry = entry
+    }
+
+    static let none = EntryRowActions()
 }
 
 /// Commands the row context menu offers beyond the row-specific ones.
@@ -779,12 +788,27 @@ struct EntryListView: NSViewRepresentable {
             )
         }
 
-        // MARK: Dragging rows onto a tab
+        // MARK: Dragging rows onto a tab or external apps
 
         func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
             guard parent.rows.indices.contains(row) else { return nil }
+            let entryID = parent.rows[row].id
             let item = NSPasteboardItem()
-            item.setString(String(parent.rows[row].id), forType: EntryDrag.pasteboardType)
+            item.setString(String(entryID), forType: EntryDrag.pasteboardType)
+
+            let isLeader: Bool
+            if tableView.selectedRowIndexes.contains(row) {
+                isLeader = (row == tableView.selectedRowIndexes.first)
+            } else if parent.selection.selectedEntryIDs.contains(entryID) {
+                let firstSelectedRow = parent.rows.firstIndex { parent.selection.selectedEntryIDs.contains($0.id) }
+                isLeader = (row == firstSelectedRow)
+            } else {
+                isLeader = true
+            }
+
+            if isLeader, let entry = parent.actions.entry(entryID) {
+                PasteboardBridge.attachStandardTypes(from: entry.flavours, to: item)
+            }
             return item
         }
 
