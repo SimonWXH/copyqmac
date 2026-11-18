@@ -355,6 +355,21 @@ func registerEntryDragTests() {
         }
     }
 
+    TestRunner.add("paste-back restores non-standard stored flavour bytes") {
+        let customData = Data([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x37])
+        let webArchiveData = Data(repeating: 0x5A, count: 32)
+        let flavours = [
+            Flavour(itemIndex: 0, type: PasteboardTypes.utf8Text, data: Data("label".utf8)),
+            Flavour(itemIndex: 0, type: "com.adobe.pdf", data: customData),
+            Flavour(itemIndex: 0, type: "com.apple.webarchive", data: webArchiveData),
+        ]
+        let pboard = NSPasteboard(name: .init("copyqmac-pasteback-all-flavours-\(UUID().uuidString)"))
+        PasteboardBridge.write(flavours, to: pboard)
+        expectEqual(pboard.data(forType: .init("com.adobe.pdf")), customData)
+        expectEqual(pboard.data(forType: .init("com.apple.webarchive")), webArchiveData)
+        expectEqual(pboard.string(forType: .init(PasteboardTypes.utf8Text)), "label")
+    }
+
     TestRunner.add("PasteboardBridge.pasteboardItems converts MIME flavours and strips bookkeeping") {
         let flavours = [
             Flavour(itemIndex: 0, type: PasteboardTypes.mimeText, data: Data("plain text".utf8)),
@@ -512,6 +527,15 @@ func registerEntryDragTests() {
         expectNil(
             item.data(forType: NSPasteboard.PasteboardType(customType)),
             "non-standard payloads must not be materialised for a drag"
+        )
+
+        let pboard = NSPasteboard(name: .init("copyqmac-drag-containment-\(UUID().uuidString)"))
+        let entry = ClipboardEntry(id: 1, createdAt: Date(), flavours: flavours)
+        PasteboardBridge.writeDragData(for: [entry], to: pboard)
+        expectEqual(pboard.string(forType: .string), "visible")
+        expectNil(
+            pboard.data(forType: NSPasteboard.PasteboardType(customType)),
+            "non-standard payloads must not reach the drag pasteboard"
         )
     }
 }

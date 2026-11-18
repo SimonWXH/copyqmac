@@ -42,6 +42,13 @@ public enum PasteboardBridge {
     /// pasteboard types (UTF-8 plain text, HTML, RTF, PNG, JPEG, TIFF, GIF,
     /// HEIC, file URL) when only MIME or legacy flavours are present.
     public static func pasteboardItems(from flavours: [Flavour]) -> [NSPasteboardItem] {
+        makePasteboardItems(from: flavours, allowedTypes: nil)
+    }
+
+    private static func makePasteboardItems(
+        from flavours: [Flavour],
+        allowedTypes: Set<String>?
+    ) -> [NSPasteboardItem] {
         let cleanFlavours = flavours.filter { flavour in
             !Fingerprint.isBookkeepingFlavour(flavour.type)
         }
@@ -50,11 +57,11 @@ public enum PasteboardBridge {
             let itemFlavours = grouped[index] ?? []
             var items = [NSPasteboardItem()]
             var fileURLData: [Data] = []
-            let representations = standardPasteboardFlavours(for: itemFlavours)
+            let representations = standardPasteboardFlavours(for: itemFlavours).filter { flavour in
+                allowedTypes?.contains(flavour.type) ?? true
+            }
             for flavour in representations where flavour.type != PasteboardTypes.fileURL {
-                if standardDragTypes.contains(flavour.type) {
-                    items[0].setData(flavour.data, forType: NSPasteboard.PasteboardType(flavour.type))
-                }
+                items[0].setData(flavour.data, forType: NSPasteboard.PasteboardType(flavour.type))
             }
             for flavour in representations where flavour.type == PasteboardTypes.fileURL {
                 fileURLData.append(flavour.data)
@@ -231,7 +238,10 @@ public enum PasteboardBridge {
 
         for entry in entries {
             allFlavours.append(contentsOf: entry.flavours)
-            let entryItems = pasteboardItems(from: entry.flavours)
+            let entryItems = makePasteboardItems(
+                from: entry.flavours,
+                allowedTypes: standardDragTypes.union(legacyDragTypes)
+            )
             if let first = entryItems.first {
                 first.setString(String(entry.id), forType: EntryDrag.pasteboardType)
                 items.append(contentsOf: entryItems)
