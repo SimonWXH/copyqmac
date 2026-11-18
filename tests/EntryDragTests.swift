@@ -470,6 +470,27 @@ func registerEntryDragTests() {
         expectNil(pboard.data(forType: .init(PasteboardTypes.legacyRTF)))
     }
 
+    TestRunner.add("write preserves non-allowlisted flavours during paste-back") {
+        let pdfData = Data([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x37])
+        let webArchiveData = Data(repeating: 0x5A, count: 32)
+        let rtfdData = Data("rtfd-archive-bytes".utf8)
+        let webpData = Data([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50])
+        let flavours = [
+            Flavour(itemIndex: 0, type: PasteboardTypes.utf8Text, data: Data("plain".utf8)),
+            Flavour(itemIndex: 0, type: "com.adobe.pdf", data: pdfData),
+            Flavour(itemIndex: 0, type: "public.webarchive", data: webArchiveData),
+            Flavour(itemIndex: 0, type: "public.rtfd", data: rtfdData),
+            Flavour(itemIndex: 0, type: "public.webp", data: webpData),
+        ]
+        let pboard = NSPasteboard(name: .init("copyqmac-pasteback-non-allowlist-\(UUID().uuidString)"))
+        PasteboardBridge.write(flavours, to: pboard)
+        expectEqual(pboard.data(forType: .init("com.adobe.pdf")), pdfData)
+        expectEqual(pboard.data(forType: .init("public.webarchive")), webArchiveData)
+        expectEqual(pboard.data(forType: .init("public.rtfd")), rtfdData)
+        expectEqual(pboard.data(forType: .init("public.webp")), webpData)
+        expectEqual(pboard.string(forType: .init(PasteboardTypes.utf8Text)), "plain")
+    }
+
     TestRunner.add("PasteboardBridge.pasteboardItems converts MIME flavours and strips bookkeeping") {
         let flavours = [
             Flavour(itemIndex: 0, type: PasteboardTypes.mimeText, data: Data("plain text".utf8)),
