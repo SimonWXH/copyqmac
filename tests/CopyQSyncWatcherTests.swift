@@ -1231,4 +1231,47 @@ func registerCopyQSyncWatcherTests() {
         expect(durable[CopyQSyncBridge.normalizePath(folderA.path)]?.contains(stem) == true, "folder A keeps its durable row")
         expect(durable[CopyQSyncBridge.normalizePath(folderB.path)]?.contains(stem) == true, "folder B keeps its separate durable row")
     }
+
+    TestRunner.add("watcher skips Syncthing conflict files and does not import ghost entries") {
+        let tempDir = createTempDirectory(prefix: "copyq-watcher-syncthing-conflict")
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let store = try ClipboardStore(inMemory: true)
+        let tab = try store.insertTab(ClipboardTab(
+            name: "WatcherConflictTab",
+            syncFolder: tempDir.path
+        ))
+
+        let regularStem = "copyq_20261118120000100"
+        let conflictStem = "\(regularStem).sync-conflict-20261118-120600-DEV01"
+
+        try Data("Watcher regular content".utf8)
+            .write(to: tempDir.appendingPathComponent("\(regularStem).txt"))
+        try Data("Watcher conflict content".utf8)
+            .write(to: tempDir.appendingPathComponent("\(conflictStem).txt"))
+
+        // Verify findItemGroups skips conflict files
+        let groups = CopyQSyncWatcher.findItemGroups(in: tempDir.path)
+        expectEqual(groups.count, 1, "findItemGroups must discover only 1 group")
+        expectEqual(groups.first?.stem, regularStem, "discovered group stem must be regularStem")
+
+        // Verify itemStem skips conflict files
+        expectEqual(CopyQSyncWatcher.itemStem(ofFileName: "\(conflictStem).txt"), nil, "itemStem must return nil for conflict files")
+        expectEqual(CopyQSyncWatcher.itemStem(ofFileName: "\(regularStem).txt"), regularStem, "itemStem returns regularStem")
+
+        // Verify itemGroupStems skips conflict files
+        let stems = CopyQSyncWatcher.itemGroupStems(in: tempDir.path)
+        expectEqual(stems, Set([regularStem]), "itemGroupStems must contain only regularStem")
+
+        // Verify watcher scan
+        let watcher = CopyQSyncWatcher(store: store)
+        watcher.settleDelay = 0
+        let report = try watcher.scanFolder(atPath: tempDir.path, intoTabID: tab.id, in: store, settleDelayOverride: 0)
+        expectEqual(report.importedCount, 1, "watcher must import only the regular item")
+
+        let entries = try store.recentEntries(tabID: tab.id)
+        expectEqual(entries.count, 1, "store must contain only 1 entry")
+        let textData = entries.first?.flavours.first(where: { $0.type == PasteboardTypes.utf8Text })?.data
+        expectEqual(textData.flatMap { String(data: $0, encoding: .utf8) }, "Watcher regular content", "imported entry must be regular item")
+    }
 }

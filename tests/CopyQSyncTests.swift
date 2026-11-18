@@ -2271,6 +2271,50 @@ func registerCopyQSyncTests() {
         expectEqual(secondReport.duplicateCount, 1, "the re-import is recognised as the same entry")
         expectEqual(try store.count(tabID: tab.id), 1, "one row remains")
     }
+
+    TestRunner.add("sync folder scanning skips Syncthing conflict files") {
+        let tempDir = try Fixtures.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let store = try ClipboardStore(inMemory: true)
+        let tab = try store.insertTab(ClipboardTab(
+            name: "SyncthingTab",
+            syncFolder: tempDir.path
+        ))
+
+        let regularStem = "copyq_20261118120000000"
+        let conflictStem1 = "\(regularStem).sync-conflict-20261118-120500"
+        let conflictStem2 = "copyq_20261118120000001.sync-conflict-20261118-121000-XYZ123"
+
+        // Regular item
+        try Data("Valid item content".utf8)
+            .write(to: tempDir.appendingPathComponent("\(regularStem).txt"))
+
+        // Syncthing conflict items
+        try Data("Conflict item 1".utf8)
+            .write(to: tempDir.appendingPathComponent("\(conflictStem1).txt"))
+        try Data("Conflict item 2".utf8)
+            .write(to: tempDir.appendingPathComponent("\(conflictStem2).txt"))
+        try Data("Conflict dat".utf8)
+            .write(to: tempDir.appendingPathComponent("\(regularStem).sync-conflict-20261118-120500._copyq.dat"))
+
+        // Verify CopyQSyncFolder.read directly
+        let contents = try CopyQSyncFolder.read(atPath: tempDir.path)
+        expectEqual(contents.items.count, 1, "only regular item must be read; conflict files must be skipped")
+        expectEqual(contents.items.first?.baseName, regularStem, "read item baseName must match regularStem")
+        expectEqual(contents.items.first?.text, "Valid item content", "read item text matches")
+
+        // Verify folder import
+        let report = try CopyQSyncBridge.importSyncFolder(atPath: tempDir.path, intoTabID: tab.id, in: store)
+        expectEqual(report.importedCount, 1, "only 1 item should be imported")
+        expectEqual(report.duplicateCount, 0, "no duplicates")
+        expectEqual(report.failedCount, 0, "no failures")
+
+        let entries = try store.recentEntries(tabID: tab.id)
+        expectEqual(entries.count, 1, "store must contain only 1 entry")
+        let textData = entries.first?.flavours.first(where: { $0.type == PasteboardTypes.utf8Text })?.data
+        expectEqual(textData.flatMap { String(data: $0, encoding: .utf8) }, "Valid item content", "imported entry content must be regular item")
+    }
 }
 
 // MARK: - Backup export

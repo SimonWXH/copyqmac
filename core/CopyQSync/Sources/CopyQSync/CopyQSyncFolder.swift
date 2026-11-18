@@ -91,6 +91,11 @@ public struct CopyQSyncFolder {
         var resolvedPath: String
     }
 
+    /// True when `name` matches a Syncthing sync-conflict file pattern.
+    public static func isSyncConflictFileName(_ name: String) -> Bool {
+        name.contains(".sync-conflict-")
+    }
+
     /// Reads every item in a sync folder without modifying anything.
     public static func read(
         atPath path: String,
@@ -108,6 +113,7 @@ public struct CopyQSyncFolder {
         func enumerate(_ directory: URL, relativeTo relativeDirectory: String) throws {
             for name in try fileManager.contentsOfDirectory(atPath: directory.path).sorted() {
                 guard !name.hasPrefix(".") else { continue }
+                guard !isSyncConflictFileName(name) else { continue }
                 let relativePath = relativeDirectory.isEmpty ? name : relativeDirectory + "/" + name
                 let child = directory.appendingPathComponent(name)
                 guard let resolved = resolvedPath(child.path) else {
@@ -141,6 +147,7 @@ public struct CopyQSyncFolder {
 
         for candidate in candidates {
             let file = candidate.relativePath
+            guard !isSyncConflictFileName(file) else { continue }
             guard let ext = CopyQFormat.matchedExtension(forFileName: file),
                   let format = CopyQFormat.format(forExtension: ext)
             else {
@@ -248,6 +255,7 @@ public struct CopyQSyncFolder {
         candidateFiles: [String]? = nil,
         maximumDecompressedSize: Int = QtCompression.defaultMaximumUncompressedSize
     ) throws -> (item: CopyQSyncItem, failures: [Failure])? {
+        guard !isSyncConflictFileName(baseName) else { return nil }
         let fm = FileManager.default
         guard let root = resolvedPath(folderPath) else { return nil }
         var groupEntries: [(file: String, resolvedPath: String, ext: String, format: String)] = []
@@ -267,6 +275,7 @@ public struct CopyQSyncFolder {
 
         for filename in filenames {
             guard !filename.hasPrefix("."), filename.hasPrefix(baseName) else { continue }
+            guard !isSyncConflictFileName(filename) else { continue }
             guard let ext = CopyQFormat.matchedExtension(forFileName: filename),
                   let format = CopyQFormat.format(forExtension: ext)
             else { continue }
