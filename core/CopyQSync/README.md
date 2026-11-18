@@ -35,6 +35,11 @@ the format names are the ones in `plugins/itemsync/filewatcher.cpp` upstream.
 items, per-format flavour counts, notes, images and a reason for every file
 that cannot be decoded.  `CopyQSyncFolder.readItem(baseName:atPath:candidateFiles:)`
 reads and decodes an individual item group by stem without enumerating unrelated files.
+Both paths skip Syncthing conflict copies, whose names contain `.sync-conflict-`
+between the stem and extension: a concurrent edit produces files such as
+`copyq_20260829120939486.sync-conflict-20261118-120500.txt`, and treating them
+as new stems would import ghost items and pollute two-way sync history.
+
 `CopyQSyncFolder.write(_:into:)` writes an item back in the same shape; callers
 must point it at a scratch directory.
 
