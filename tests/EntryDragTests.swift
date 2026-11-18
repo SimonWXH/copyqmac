@@ -176,14 +176,14 @@ func registerEntryDragTests() {
         }
     }
 
-    TestRunner.add("multi-selection drag places standard types only on the drag leader item") {
+    TestRunner.add("multi-selection drag attaches standard types to each dragged item") {
         MainActor.assumeIsolated {
             let entry1 = ClipboardEntry(
                 id: 101,
                 createdAt: Date(),
                 tabID: 1,
                 flavours: [
-                    Flavour(itemIndex: 0, type: PasteboardTypes.utf8Text, data: Data("Leader text".utf8))
+                    Flavour(itemIndex: 0, type: PasteboardTypes.utf8Text, data: Data("First item text".utf8))
                 ]
             )
             let entry2 = ClipboardEntry(
@@ -191,12 +191,12 @@ func registerEntryDragTests() {
                 createdAt: Date(),
                 tabID: 1,
                 flavours: [
-                    Flavour(itemIndex: 0, type: PasteboardTypes.utf8Text, data: Data("Follower text".utf8))
+                    Flavour(itemIndex: 0, type: PasteboardTypes.utf8Text, data: Data("Second item text".utf8))
                 ]
             )
             let rows = [
-                makeRow(id: 101, text: "Leader text"),
-                makeRow(id: 102, text: "Follower text"),
+                makeRow(id: 101, text: "First item text"),
+                makeRow(id: 102, text: "Second item text"),
             ]
             let entries: [Int64: ClipboardEntry] = [101: entry1, 102: entry2]
             let selection = SelectionState()
@@ -222,7 +222,6 @@ func registerEntryDragTests() {
             coordinator.attach(to: table)
             table.selectRowIndexes(IndexSet([0, 1]), byExtendingSelection: false)
 
-            // Row 0 is the drag leader (first row in selection)
             guard let writer0 = coordinator.tableView(table, pasteboardWriterForRow: 0) as? NSPasteboardItem else {
                 TestRunner.fail("writer0 must be NSPasteboardItem")
                 return
@@ -230,24 +229,24 @@ func registerEntryDragTests() {
             expectEqual(writer0.string(forType: EntryDrag.pasteboardType), "101")
             expectEqual(
                 writer0.string(forType: NSPasteboard.PasteboardType(PasteboardTypes.utf8Text)),
-                "Leader text",
-                "drag leader gets standard types"
+                "First item text",
+                "row 0 gets its own standard types"
             )
 
-            // Row 1 is a follower
             guard let writer1 = coordinator.tableView(table, pasteboardWriterForRow: 1) as? NSPasteboardItem else {
                 TestRunner.fail("writer1 must be NSPasteboardItem")
                 return
             }
             expectEqual(writer1.string(forType: EntryDrag.pasteboardType), "102")
-            expectNil(
-                writer1.data(forType: NSPasteboard.PasteboardType(PasteboardTypes.utf8Text)),
-                "follower items must not duplicate standard types on their pasteboard items"
+            expectEqual(
+                writer1.string(forType: NSPasteboard.PasteboardType(PasteboardTypes.utf8Text)),
+                "Second item text",
+                "row 1 gets its own standard types"
             )
         }
     }
 
-    TestRunner.add("dragging row outside selection acts as single-item drag leader") {
+    TestRunner.add("dragging row outside selection attaches its own standard types") {
         MainActor.assumeIsolated {
             let entry1 = ClipboardEntry(
                 id: 101,
@@ -281,7 +280,6 @@ func registerEntryDragTests() {
             )
             let coordinator = list.makeCoordinator()
             let table = EntryListView.makeTableView(coordinator: coordinator)
-            // Table selection is row 0, but user drags row 1
             table.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
             coordinator.attach(to: table)
 
@@ -293,7 +291,7 @@ func registerEntryDragTests() {
             expectEqual(
                 writer1.string(forType: NSPasteboard.PasteboardType(PasteboardTypes.utf8Text)),
                 "Item 2",
-                "dragging unselected row makes it its own drag leader"
+                "dragging unselected row attaches its own standard types"
             )
         }
     }

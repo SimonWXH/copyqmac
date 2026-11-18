@@ -796,17 +796,7 @@ struct EntryListView: NSViewRepresentable {
             let item = NSPasteboardItem()
             item.setString(String(entryID), forType: EntryDrag.pasteboardType)
 
-            let isLeader: Bool
-            if tableView.selectedRowIndexes.contains(row) {
-                isLeader = (row == tableView.selectedRowIndexes.first)
-            } else if parent.selection.selectedEntryIDs.contains(entryID) {
-                let firstSelectedRow = parent.rows.firstIndex { parent.selection.selectedEntryIDs.contains($0.id) }
-                isLeader = (row == firstSelectedRow)
-            } else {
-                isLeader = true
-            }
-
-            if isLeader, let entry = parent.actions.entry(entryID) {
+            if let entry = parent.actions.entry(entryID) {
                 PasteboardBridge.attachDragTypes(from: entry.flavours, to: item)
             }
             return item
