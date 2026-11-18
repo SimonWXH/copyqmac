@@ -1279,8 +1279,6 @@ private final class SidebarToggleHarness {
 
 // MARK: - Layout B window harness
 
-/// The shipped `MainWindowView` laid out in an unshown window with a stored
-/// layout preference, so the deliverable renders through the real view tree.
 /// The shipped Layout B view without the main window's minimum-size frame, so a
 /// test can host it at a height where the split's minimum pane height applies.
 private struct LayoutBRoot: View {
