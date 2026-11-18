@@ -394,10 +394,11 @@ func registerEntryDragTests() {
         expectEqual(urls.map(\.path), legacyPaths + ["/tmp/c.txt", "/tmp/d.txt", "/tmp/e.txt", "/tmp/f.txt"])
     }
 
-    TestRunner.add("a multi-file drag attaches file URL representation") {
+    TestRunner.add("a multi-file drag produces separate file items and legacy filenames on the drag pasteboard") {
         MainActor.assumeIsolated {
+            let legacyPaths = ["/tmp/a.txt", "/tmp/b.txt"]
             let legacy = try! PropertyListSerialization.data(
-                fromPropertyList: ["/tmp/a.txt", "/tmp/b.txt"],
+                fromPropertyList: legacyPaths,
                 format: .xml,
                 options: 0
             )
@@ -435,21 +436,22 @@ func registerEntryDragTests() {
             let table = EntryListView.makeTableView(coordinator: coordinator)
             coordinator.attach(to: table)
 
-            guard let writer0 = coordinator.tableView(table, pasteboardWriterForRow: 0) as? NSPasteboardItem,
-                  let data0 = writer0.data(forType: NSPasteboard.PasteboardType(PasteboardTypes.fileURL)),
-                  let str0 = String(data: data0, encoding: .utf8) else {
-                TestRunner.fail("writer0 must have valid file URL")
-                return
-            }
-            expectEqual(str0, "file:///tmp/a.txt")
+            let pboard = NSPasteboard(name: .init("copyqmac-drag-test-\(UUID().uuidString)"))
+            coordinator.writeDragData(forRowIndexes: IndexSet([0, 1]), to: pboard)
 
-            guard let writer1 = coordinator.tableView(table, pasteboardWriterForRow: 1) as? NSPasteboardItem,
-                  let data1 = writer1.data(forType: NSPasteboard.PasteboardType(PasteboardTypes.fileURL)),
-                  let str1 = String(data: data1, encoding: .utf8) else {
-                TestRunner.fail("writer1 must have valid file URL")
+            let snapshot = PasteboardBridge.snapshot(of: pboard)
+            let urls = FlavourDecoder.fileURLs(from: snapshot) ?? []
+            expectEqual(urls.map(\.path), ["/tmp/a.txt", "/tmp/b.txt", "/tmp/c.txt", "/tmp/d.txt"])
+
+            let filenames = pboard.propertyList(forType: .init(PasteboardTypes.legacyFilenames)) as? [String]
+            expectEqual(filenames, ["/tmp/a.txt", "/tmp/b.txt", "/tmp/c.txt", "/tmp/d.txt"])
+
+            guard let items = pboard.pasteboardItems, items.count == 4 else {
+                TestRunner.fail("drag pasteboard must have 4 separate items for the 4 files")
                 return
             }
-            expectEqual(str1, "file:///tmp/c.txt")
+            expectEqual(items[0].string(forType: EntryDrag.pasteboardType), "1")
+            expectEqual(items[2].string(forType: EntryDrag.pasteboardType), "2")
         }
     }
 
@@ -464,6 +466,33 @@ func registerEntryDragTests() {
         PasteboardBridge.attachDragTypes(from: flavours, to: item)
         expectEqual(item.string(forType: .html), htmlContent)
         expectEqual(item.string(forType: .rtf), rtfContent)
+
+        let pboard = NSPasteboard(name: .init("copyqmac-legacy-rich-\(UUID().uuidString)"))
+        let entry = ClipboardEntry(id: 42, createdAt: Date(), flavours: flavours)
+        PasteboardBridge.writeDragData(for: [entry], to: pboard)
+        expectEqual(pboard.string(forType: .html), htmlContent)
+        expectEqual(pboard.string(forType: .rtf), rtfContent)
+        expectEqual(pboard.data(forType: .init(PasteboardTypes.legacyHTML)), Data(htmlContent.utf8))
+        expectEqual(pboard.data(forType: .rtf), Data(rtfContent.utf8))
+    }
+
+    TestRunner.add("drag derivation preserves non-PNG image formats (JPEG, TIFF, GIF, HEIC)") {
+        let formats: [(String, String, Data)] = [
+            ("image/jpeg", PasteboardTypes.jpeg, Data([0xFF, 0xD8, 0xFF, 0xE0])),
+            ("image/tiff", PasteboardTypes.tiff, Data([0x49, 0x49, 0x2A, 0x00])),
+            ("image/gif", "com.compuserve.gif", Data([0x47, 0x49, 0x46, 0x38])),
+            ("image/heic", PasteboardTypes.heic, Data([0x00, 0x00, 0x00, 0x18])),
+        ]
+        for (mime, expectedType, sampleBytes) in formats {
+            let flavours = [Flavour(itemIndex: 0, type: mime, data: sampleBytes)]
+            let item = NSPasteboardItem()
+            PasteboardBridge.attachDragTypes(from: flavours, to: item)
+            expectEqual(
+                item.data(forType: .init(expectedType)),
+                sampleBytes,
+                "\(mime) must map to native type \(expectedType)"
+            )
+        }
     }
 
     TestRunner.add("drag derivation ignores non-standard stored payloads") {

@@ -39,8 +39,8 @@ public enum PasteboardBridge {
     }
 
     /// Builds NSPasteboardItems for the given flavours, synthesising standard
-    /// pasteboard types (UTF-8 plain text, HTML, RTF, PNG, file URL) when only
-    /// MIME or legacy flavours are present.
+    /// pasteboard types (UTF-8 plain text, HTML, RTF, PNG, JPEG, TIFF, GIF,
+    /// HEIC, file URL) when only MIME or legacy flavours are present.
     public static func pasteboardItems(from flavours: [Flavour]) -> [NSPasteboardItem] {
         let cleanFlavours = flavours.filter { flavour in
             !Fingerprint.isBookkeepingFlavour(flavour.type)
@@ -52,7 +52,9 @@ public enum PasteboardBridge {
             var fileURLData: [Data] = []
             let representations = standardPasteboardFlavours(for: itemFlavours)
             for flavour in representations where flavour.type != PasteboardTypes.fileURL {
-                items[0].setData(flavour.data, forType: NSPasteboard.PasteboardType(flavour.type))
+                if standardDragTypes.contains(flavour.type) {
+                    items[0].setData(flavour.data, forType: NSPasteboard.PasteboardType(flavour.type))
+                }
             }
             for flavour in representations where flavour.type == PasteboardTypes.fileURL {
                 fileURLData.append(flavour.data)
@@ -96,22 +98,38 @@ public enum PasteboardBridge {
            let source = firstOfType("image/png") {
             result.append(Flavour(itemIndex: source.itemIndex, type: PasteboardTypes.png, data: source.data))
         }
-        if !existingTypes.contains(PasteboardTypes.fileURL) {
-            if let uriList = firstOfType(PasteboardTypes.mimeUriList) {
-                let raw = String(decoding: uriList.data, as: UTF8.self)
-                let urls = fileURLs(from: raw)
-                for url in urls {
-                    if let data = url.absoluteString.data(using: .utf8) {
-                        result.append(Flavour(itemIndex: uriList.itemIndex, type: PasteboardTypes.fileURL, data: data))
-                    }
-                }
-            } else if let filenames = firstOfType(PasteboardTypes.legacyFilenames),
-                      let paths = filePaths(from: filenames.data) {
-                for path in paths {
-                    let url = URL(fileURLWithPath: path)
-                    if let data = url.absoluteString.data(using: .utf8) {
-                        result.append(Flavour(itemIndex: filenames.itemIndex, type: PasteboardTypes.fileURL, data: data))
-                    }
+        if !existingTypes.contains(PasteboardTypes.jpeg),
+           let source = firstOfType("image/jpeg") ?? firstOfType("image/jpg") {
+            result.append(Flavour(itemIndex: source.itemIndex, type: PasteboardTypes.jpeg, data: source.data))
+        }
+        if !existingTypes.contains(PasteboardTypes.tiff),
+           let source = firstOfType("image/tiff") {
+            result.append(Flavour(itemIndex: source.itemIndex, type: PasteboardTypes.tiff, data: source.data))
+        }
+        if !existingTypes.contains(PasteboardTypes.heic),
+           let source = firstOfType("image/heic") {
+            result.append(Flavour(itemIndex: source.itemIndex, type: PasteboardTypes.heic, data: source.data))
+        }
+        if !existingTypes.contains("com.compuserve.gif"),
+           let source = firstOfType("image/gif") {
+            result.append(Flavour(itemIndex: source.itemIndex, type: "com.compuserve.gif", data: source.data))
+        }
+        if !existingTypes.contains("com.microsoft.bmp"),
+           let source = firstOfType("image/bmp") {
+            result.append(Flavour(itemIndex: source.itemIndex, type: "com.microsoft.bmp", data: source.data))
+        }
+
+        let urls = FlavourDecoder.fileURLs(from: flavours) ?? []
+        if !urls.isEmpty {
+            let existingURLs: Set<String> = Set(
+                flavours.filter { $0.type == PasteboardTypes.fileURL }
+                    .compactMap { String(data: $0.data, encoding: .utf8) }
+            )
+            let baseIndex = flavours.first?.itemIndex ?? 0
+            for url in urls {
+                let str = url.absoluteString
+                if !existingURLs.contains(str), let data = str.data(using: .utf8) {
+                    result.append(Flavour(itemIndex: baseIndex, type: PasteboardTypes.fileURL, data: data))
                 }
             }
         }
@@ -142,13 +160,94 @@ public enum PasteboardBridge {
         }
     }
 
-    private static let standardDragTypes: Set<String> = [
+    public static let standardDragTypes: Set<String> = [
         PasteboardTypes.utf8Text, PasteboardTypes.utf16Text, PasteboardTypes.utf16ExternalText,
         PasteboardTypes.plainText,
         PasteboardTypes.html, PasteboardTypes.rtf,
         PasteboardTypes.png, PasteboardTypes.tiff, PasteboardTypes.jpeg, PasteboardTypes.heic,
+        "com.compuserve.gif", "com.microsoft.bmp",
         PasteboardTypes.fileURL, PasteboardTypes.url,
     ]
+
+    public static let legacyDragTypes: Set<String> = [
+        PasteboardTypes.legacyFilenames,
+        PasteboardTypes.legacyHTML,
+        PasteboardTypes.legacyRTF,
+        PasteboardTypes.legacyText,
+    ]
+
+    /// Writes legacy pasteboard representations directly to the pasteboard,
+    /// ensuring older pasteboard consumers and Finder drops receive complete
+    /// filename lists and rich-text flavours.
+    public static func writeLegacyTypes(from flavours: [Flavour], to pasteboard: NSPasteboard) {
+        let existingTypes = Set(pasteboard.types?.map(\.rawValue) ?? [])
+
+        if !existingTypes.contains(PasteboardTypes.legacyFilenames) {
+            let urls = FlavourDecoder.fileURLs(from: flavours) ?? []
+            if !urls.isEmpty {
+                let paths = urls.map(\.path)
+                pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyFilenames)], owner: nil)
+                pasteboard.setPropertyList(paths, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyFilenames))
+            }
+        }
+
+        if !existingTypes.contains(PasteboardTypes.legacyHTML) {
+            if let htmlFlavour = flavours.first(where: {
+                $0.type == PasteboardTypes.html || $0.type == PasteboardTypes.mimeHtml || $0.type == PasteboardTypes.legacyHTML
+            }) {
+                pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyHTML)], owner: nil)
+                pasteboard.setData(htmlFlavour.data, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyHTML))
+            }
+        }
+
+        if !existingTypes.contains(PasteboardTypes.legacyRTF) {
+            if let rtfFlavour = flavours.first(where: {
+                $0.type == PasteboardTypes.rtf || $0.type == PasteboardTypes.mimeRtf || $0.type == PasteboardTypes.legacyRTF
+            }) {
+                pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyRTF)], owner: nil)
+                pasteboard.setData(rtfFlavour.data, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyRTF))
+            }
+        }
+
+        if !existingTypes.contains(PasteboardTypes.legacyText) {
+            if let textFlavour = flavours.first(where: {
+                $0.type == PasteboardTypes.utf8Text || $0.type == PasteboardTypes.plainText ||
+                $0.type == PasteboardTypes.mimeText || $0.type == PasteboardTypes.legacyText
+            }) {
+                if let str = String(data: textFlavour.data, encoding: .utf8) {
+                    pasteboard.addTypes([NSPasteboard.PasteboardType(PasteboardTypes.legacyText)], owner: nil)
+                    pasteboard.setString(str, forType: NSPasteboard.PasteboardType(PasteboardTypes.legacyText))
+                }
+            }
+        }
+    }
+
+    /// Populates a pasteboard with all items and legacy types for a drag
+    /// operation across one or more entries, ensuring multi-file entries emit
+    /// one item per URL and internal drag identity is preserved.
+    public static func writeDragData(for entries: [ClipboardEntry], to pasteboard: NSPasteboard) {
+        var items: [NSPasteboardItem] = []
+        var allFlavours: [Flavour] = []
+
+        for entry in entries {
+            allFlavours.append(contentsOf: entry.flavours)
+            let entryItems = pasteboardItems(from: entry.flavours)
+            if let first = entryItems.first {
+                first.setString(String(entry.id), forType: EntryDrag.pasteboardType)
+                items.append(contentsOf: entryItems)
+            } else {
+                let item = NSPasteboardItem()
+                item.setString(String(entry.id), forType: EntryDrag.pasteboardType)
+                items.append(item)
+            }
+        }
+
+        pasteboard.clearContents()
+        if !items.isEmpty {
+            pasteboard.writeObjects(items)
+        }
+        writeLegacyTypes(from: allFlavours, to: pasteboard)
+    }
 
     /// Writes flavours back to the pasteboard, rebuilding the item structure.
     ///
@@ -161,6 +260,7 @@ public enum PasteboardBridge {
         if !items.isEmpty {
             pasteboard.writeObjects(items)
         }
+        writeLegacyTypes(from: flavours, to: pasteboard)
         return pasteboard.changeCount
     }
 }

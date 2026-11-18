@@ -802,6 +802,23 @@ struct EntryListView: NSViewRepresentable {
             return item
         }
 
+        func tableView(
+            _ tableView: NSTableView,
+            draggingSession session: NSDraggingSession,
+            willBeginAt screenPoint: NSPoint,
+            forRowIndexes rowIndexes: IndexSet
+        ) {
+            writeDragData(forRowIndexes: rowIndexes, to: session.draggingPasteboard)
+        }
+
+        func writeDragData(forRowIndexes rowIndexes: IndexSet, to pasteboard: NSPasteboard) {
+            let entries = rowIndexes.compactMap { row -> ClipboardEntry? in
+                guard parent.rows.indices.contains(row) else { return nil }
+                return parent.actions.entry(parent.rows[row].id)
+            }
+            PasteboardBridge.writeDragData(for: entries, to: pasteboard)
+        }
+
         // A single click activates immediately when configured. Click-sequence
         // suppression ensures that a rapid double click on the same row performs
         // only one activation in total.
