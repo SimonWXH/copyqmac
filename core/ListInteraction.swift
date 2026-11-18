@@ -54,8 +54,9 @@ public enum ListInteractionPolicy {
 
     /// Whether a held-down key must be ignored instead of repeating its action.
     ///
-    /// Holding Return, Escape, or Delete must not queue several pastes, closes,
-    /// or deletions, while holding an arrow key still scrolls the selection.
+    /// Holding Return, Escape, Delete, or a digit must not queue several
+    /// pastes, closes, deletions, or quick pastes, while holding an arrow key
+    /// still scrolls the selection.
     public static func ignoresKeyRepeat(_ key: ListKey) -> Bool {
         switch key {
         case .enter, .escape, .delete, .digit: return true
@@ -74,7 +75,9 @@ public enum ListInteractionPolicy {
     /// Movement, Return, and Escape work from the filter and the item list, so a
     /// click that ends note editing cannot leave the list unable to move. Delete
     /// is the one destructive key, so it needs the filter or the list to have
-    /// focus.
+    /// focus. Digits 1 through 9 paste the matching visible row with Command or
+    /// with an empty filter; plain digits stay with a filter or note editor that
+    /// needs the typed text. Other modifiers never trigger quick paste.
     ///
     /// A focused sidebar keeps Up/Down and Return for the tab list, while
     /// Page/Home/End are handled by the window so they move the tab selection

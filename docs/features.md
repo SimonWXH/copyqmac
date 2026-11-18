@@ -133,7 +133,11 @@ Detailed reference for CopyQ Mac features, implementation behaviours, and data m
   brings the window forward so the explanation is visible.
 - **List behaviour.** The selection always follows clicks and the arrow keys,
   including straight after editing a note, and the list scrolls the selected or
-  newly captured entry into view.
+  newly captured entry into view. `⌘1` through `⌘9` activate the item with
+  that list number, including while the search field has text; plain `1`
+  through `9` do the same only while the search field is empty, so they can
+  type into it otherwise. Digit shortcuts do not fire while a note is being
+  edited or with Shift, Option, or Control held.
 - **Multi-selection and bulk actions.** Command-click toggles a row, Shift-click
   extends a contiguous range, Command-A selects every item the list shows, and a
   plain click returns to one row. Escape clears a multi-selection once the note

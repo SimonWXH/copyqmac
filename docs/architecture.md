@@ -1044,9 +1044,12 @@ menu-bar item available.
   so the monitor passes those through to the tab list; Page/Home/End are answered
   by the window with tab selection so they do not fall back to native scrolling.
   Up and Down take the selection with the focus, and Shift-arrow
-  extends the range from the last plain click. Repeat events are dropped for
-  Return, Escape, and Delete, and deletion has a 0.3 s cooldown, so holding a
-  key cannot paste, close, or delete repeatedly.
+  extends the range from the last plain click. Digit keys 1 through 9 become
+  `ListKey.digit`; `ListInteractionPolicy` accepts them with Command or an empty
+  search field, rejects other modifiers and note editing, and AppModel maps the
+  number to the visible row before pasting. Repeat events are dropped for
+  Return, Escape, Delete, and the digit keys, and deletion has a 0.3 s cooldown,
+  so holding a key cannot paste, close, or delete repeatedly.
 - The list is a view-based `NSTableView` bridged through `NSViewRepresentable`
   (`EntryListView`). AppKit asks the data source only for on-screen rows, reuses
   cell views, and moves selection with `selectRowIndexes`, so neither a click

@@ -80,7 +80,9 @@ approximation of it.
   configurable, and Preferences reports a conflict when another application already
   owns the combination.
 - Activating an entry copies it, returns focus to the previous application and pastes.
-  The steps are configurable and run in a fixed order.
+  The steps are configurable and run in a fixed order. In the history window,
+  `⌘1` through `⌘9` activate the item with that list number; plain `1` through
+  `9` do the same while the search field is empty.
 - Paste as plain text strips every rich flavour, from the selected entry when the
   window is open and from the live clipboard otherwise.
 - Multi-selection with `⌘`-click, `⇧`-click and `⌘A`, bulk delete through the trash,
