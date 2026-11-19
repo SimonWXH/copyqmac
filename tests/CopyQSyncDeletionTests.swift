@@ -136,7 +136,7 @@ func registerCopyQSyncDeletionTests() {
                 name: "LocalOnlyTab",
                 syncFolder: paths.sync.path
             ))
-            var preferences = try store.preferences()
+            let preferences = try store.preferences()
             try store.setPreferences(preferences)
 
             let unrelatedStem = "copyq_20261025120000999"
@@ -683,7 +683,7 @@ func registerCopyQSyncDeletionTests() {
                 name: "UnsafeTrashTab",
                 syncFolder: paths.sync.path
             ))
-            var preferences = try store.preferences()
+            let preferences = try store.preferences()
             try store.setPreferences(preferences)
 
             let stem = "copyq_20261025120000130"
@@ -762,7 +762,7 @@ func registerCopyQSyncDeletionTests() {
                 name: "SyncTabToRemove",
                 syncFolder: paths.sync.path
             ))
-            var preferences = try store.preferences()
+            let preferences = try store.preferences()
             try store.setPreferences(preferences)
 
             let stem = "copyq_20261025120000777"
@@ -797,7 +797,7 @@ func registerCopyQSyncDeletionTests() {
                     name: "SyncTabToClear",
                     syncFolder: paths.sync.path
                 ))
-                var preferences = try store.preferences()
+                let preferences = try store.preferences()
                 try store.setPreferences(preferences)
 
                 let stem1 = "copyq_20261025120000881"

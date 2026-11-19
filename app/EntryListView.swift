@@ -808,15 +808,24 @@ struct EntryListView: NSViewRepresentable {
             willBeginAt screenPoint: NSPoint,
             forRowIndexes rowIndexes: IndexSet
         ) {
-            writeDragData(forRowIndexes: rowIndexes, to: session.draggingPasteboard)
-        }
-
-        func writeDragData(forRowIndexes rowIndexes: IndexSet, to pasteboard: NSPasteboard) {
+            let pasteboard = session.draggingPasteboard
             let entries = rowIndexes.compactMap { row -> ClipboardEntry? in
                 guard parent.rows.indices.contains(row) else { return nil }
                 return parent.actions.entry(parent.rows[row].id)
             }
             PasteboardBridge.writeDragData(for: entries, to: pasteboard)
+            attachFilePromises(for: entries, to: pasteboard)
+        }
+
+        /// Adds one file promise per dragged entry so a drop on Finder writes
+        /// the entry's own bytes as a real file. The promise types are appended
+        /// beside the standard representations already on the pasteboard:
+        /// internal tab drops keep reading their own type, and other apps keep
+        /// their text, rich-text, and image data.
+        private func attachFilePromises(for entries: [ClipboardEntry], to pasteboard: NSPasteboard) {
+            let providers = EntryFilePromises.providers(for: entries)
+            guard !providers.isEmpty else { return }
+            pasteboard.writeObjects(providers)
         }
 
         // A single click activates immediately when configured. Click-sequence

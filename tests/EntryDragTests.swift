@@ -1,27 +1,6 @@
 import AppKit
 import Foundation
 
-/// A real `NSDraggingSession` is only created by AppKit for a live drag, which
-/// a headless suite cannot start. This subclass only supplies the pasteboard
-/// the shipped delegate method writes through, so the delegate call itself is
-/// exercised rather than its implementation being called directly.
-private final class EntryDragTestSession: NSDraggingSession {
-    /// The base class owns drag-session resources that it only disposes when it
-    /// deinitializes. The suite keeps its stand-in sessions alive so teardown
-    /// cannot try to dispose a session AppKit never created.
-    private static var retained: [EntryDragTestSession] = []
-
-    private let pasteboard: NSPasteboard
-
-    init(pasteboard: NSPasteboard) {
-        self.pasteboard = pasteboard
-        super.init()
-        Self.retained.append(self)
-    }
-
-    override var draggingPasteboard: NSPasteboard { pasteboard }
-}
-
 func registerEntryDragTests() {
     TestRunner.currentSuite = "EntryDrag"
 
@@ -422,7 +401,7 @@ func registerEntryDragTests() {
             pasteboard.clearContents()
             pasteboard.writeObjects([writer])
 
-            let session = EntryDragTestSession(pasteboard: pasteboard)
+            let session = TestDraggingSession(pasteboard: pasteboard)
             coordinator.tableView(
                 table,
                 draggingSession: session,
@@ -432,7 +411,15 @@ func registerEntryDragTests() {
 
             expectEqual(pasteboard.string(forType: .init(PasteboardTypes.utf8Text)), text)
             expectEqual(pasteboard.string(forType: EntryDrag.pasteboardType), String(entryID))
-            expectEqual(pasteboard.pasteboardItems?.count, 1)
+            // The entry's own item plus the file promise that lets Finder write
+            // a real file; the promise must not duplicate or replace the item.
+            expectEqual(pasteboard.pasteboardItems?.count, 2)
+            expectEqual(
+                pasteboard.pasteboardItems?.filter {
+                    $0.types.map(\.rawValue).contains("com.apple.NSFilePromiseItemMetaData")
+                }.count,
+                1
+            )
         }
     }
 
@@ -612,7 +599,12 @@ func registerEntryDragTests() {
             coordinator.attach(to: table)
 
             let pboard = NSPasteboard(name: .init("copyqmac-drag-test-\(UUID().uuidString)"))
-            coordinator.writeDragData(forRowIndexes: IndexSet([0, 1]), to: pboard)
+            coordinator.tableView(
+                table,
+                draggingSession: TestDraggingSession(pasteboard: pboard),
+                willBeginAt: .zero,
+                forRowIndexes: IndexSet([0, 1])
+            )
 
             let snapshot = PasteboardBridge.snapshot(of: pboard)
             let urls = FlavourDecoder.fileURLs(from: snapshot) ?? []

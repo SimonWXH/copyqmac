@@ -296,7 +296,7 @@ func registerCopyQSyncWatcherTests() {
             name: "EchoTab",
             syncFolder: tempDir.path
         ))
-        var prefs = try store.preferences()
+        let prefs = try store.preferences()
         try store.setPreferences(prefs)
 
         let entry = ClipboardEntry(

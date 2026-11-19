@@ -824,6 +824,15 @@ A row dragged out of the list uses a separate pasteboard path: its writer and
 legacy representations for external apps while preserving `com.copyqmac.entry-ids`
 for internal tab drops. Bookkeeping and unknown custom payloads are excluded from
 the drag, and each URL in a multi-file entry gets its own `public.file-url` item.
+The same callback then appends one `NSFilePromiseProvider` per entry
+(`app/EntryFilePromiseProvider.swift`) so a drop on Finder writes a real file: a
+text, HTML, or RTF entry promises its plain text as `public.plain-text`, named
+from its sanitised first line (`Text.txt` when that line leaves nothing usable),
+an image promises its own stored format (PNG, JPEG, TIFF, HEIC, GIF, BMP) with
+byte-for-byte unchanged payload, and a file entry promises nothing because its
+`public.file-url` items already copy. The promise is the provider's own delegate,
+so the payload lives as long as the promise AppKit holds for the drag, and it
+rides beside the standard types instead of replacing them.
 
 ### Paste as Plain Text
 

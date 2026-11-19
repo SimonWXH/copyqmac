@@ -150,6 +150,27 @@ func duplicateMenuShortcuts(in menu: NSMenu) -> [String] {
     return duplicates
 }
 
+/// A real `NSDraggingSession` is only created by AppKit for a live drag, which
+/// a headless suite cannot start. This subclass only supplies the pasteboard
+/// the shipped delegate method writes through, so the delegate call itself is
+/// exercised rather than its implementation being called directly.
+final class TestDraggingSession: NSDraggingSession {
+    /// The base class owns drag-session resources that it only disposes when it
+    /// deinitializes. The suites keep their stand-in sessions alive so teardown
+    /// cannot try to dispose a session AppKit never created.
+    private static var retained: [TestDraggingSession] = []
+
+    private let pasteboard: NSPasteboard
+
+    init(pasteboard: NSPasteboard) {
+        self.pasteboard = pasteboard
+        super.init()
+        Self.retained.append(self)
+    }
+
+    override var draggingPasteboard: NSPasteboard { pasteboard }
+}
+
 // MARK: - Fixtures
 
 enum Fixtures {

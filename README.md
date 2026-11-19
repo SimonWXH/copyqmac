@@ -87,7 +87,9 @@ approximation of it.
   window is open and from the live clipboard otherwise.
 - Drag a history row into Finder, a browser or a chat app to copy it: the drag
   carries the entry's supported standard macOS representations (plain text,
-  HTML/RTF, images and file URLs). Dropping it on a tab still moves the selection.
+  HTML/RTF, images and file URLs), and Finder writes the drop as a real file - a
+  text entry as a `.txt` named after its first line, an image in the format it
+  was copied in. Dropping it on a tab still moves the selection.
 - Multi-selection with `⌘`-click, `⇧`-click and `⌘A`, bulk delete through the trash,
   reordering within pin groups, and moving entries to another tab by dragging them
   onto its tab.
