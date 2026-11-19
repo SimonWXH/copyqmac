@@ -240,6 +240,15 @@ Tools. `tests/` contains a small assertion harness and the suites:
   the drag-begin delegate rewrite, multi-file and legacy filename payloads,
   legacy and non-PNG rich or image representations, first-item-only rich text,
   custom payload containment, and paste-back preserving non-standard flavours
+- entry file promise: the spec a dragged entry can make (a text or rich-text
+  entry promising `public.plain-text` named from its sanitised first line, with
+  the character and byte caps, separator and control-character cleaning, and
+  the `Text.txt` fallback; an image promising its stored format and bytes
+  through both MIME and UTI spellings; file, bookkeeping-only, and
+  unnamed-payload entries promising nothing), delivery writing the stored
+  bytes under the proposed name on an explicit queue with the provider its own
+  delegate, and drag-begin attaching one promise per entry beside the internal
+  id and the standard types without promising anything for file entries
 - tab move wording: the tab context menu and the Tabs menu naming each move for
   the window layout in both languages (`Move Up`/`Move Down` in the sidebar,
   `Move Left`/`Move Right` above the top tab strip) while the shortcuts, the
