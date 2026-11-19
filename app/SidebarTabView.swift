@@ -21,6 +21,15 @@ struct SidebarTabView: View {
             )) {
                 ForEach(model.tabs) { tab in
                     SidebarTabRow(model: model, tab: tab)
+                        // A completed drag reorder can restore the moved row at
+                        // the drag preview's content width, and the model update
+                        // that follows is then a no-op for the List, so nothing
+                        // lays the row out at the column width again. Keying the
+                        // row by its position makes every reorder replace the
+                        // row views whose position changed, which re-proposes
+                        // the column width and discards any stale size the drop
+                        // left behind.
+                        .id(rowPosition(of: tab))
                         .tag(tab.id)
                 }
                 .onMove { indices, destination in
@@ -55,7 +64,15 @@ struct SidebarTabView: View {
         }
     }
 
-    private func reorderTabs(from source: IndexSet, to destination: Int) {
+    /// The tab's current position in the sidebar, used as the row's view
+    /// identity so a reorder recreates the rows whose position changed.
+    private func rowPosition(of tab: ClipboardTab) -> Int {
+        model.tabs.firstIndex { $0.id == tab.id } ?? -1
+    }
+
+    /// Runs the reorder the List's `.onMove` gesture reports. Internal so the
+    /// layout tests can drive the shipped handler headlessly.
+    func reorderTabs(from source: IndexSet, to destination: Int) {
         for index in source {
             let delta = destination > index ? destination - index - 1 : destination - index
             guard delta != 0 else { continue }
