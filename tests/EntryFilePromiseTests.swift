@@ -1,27 +1,6 @@
 import AppKit
 import Foundation
 
-/// A real `NSDraggingSession` is only created by AppKit for a live drag, which
-/// a headless suite cannot start. This subclass only supplies the pasteboard
-/// the shipped delegate method writes through, so the delegate call itself is
-/// exercised rather than its implementation being called directly.
-private final class EntryFilePromiseTestSession: NSDraggingSession {
-    /// The base class owns drag-session resources that it only disposes when it
-    /// deinitializes. The suite keeps its stand-in sessions alive so teardown
-    /// cannot try to dispose a session AppKit never created.
-    private static var retained: [EntryFilePromiseTestSession] = []
-
-    private let pasteboard: NSPasteboard
-
-    init(pasteboard: NSPasteboard) {
-        self.pasteboard = pasteboard
-        super.init()
-        Self.retained.append(self)
-    }
-
-    override var draggingPasteboard: NSPasteboard { pasteboard }
-}
-
 /// The pasteboard types AppKit declares for a file promise. They are documented
 /// system types but have no Swift constant, so the names live here.
 private enum PromiseTypes {
@@ -105,7 +84,7 @@ private func dragPasteboard(
     let table = EntryListView.makeTableView(coordinator: coordinator)
     coordinator.attach(to: table)
     let pasteboard = NSPasteboard(name: .init("copyqmac-file-promise-\(UUID().uuidString)"))
-    let session = EntryFilePromiseTestSession(pasteboard: pasteboard)
+    let session = TestDraggingSession(pasteboard: pasteboard)
     coordinator.tableView(
         table,
         draggingSession: session,
