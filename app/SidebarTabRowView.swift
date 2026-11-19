@@ -28,8 +28,10 @@ struct SidebarTabRow: View {
             Text(tab.name)
                 .font(DesignTokens.Typography.callout)
                 .lineLimit(1)
-
-            Spacer(minLength: DesignTokens.Spacing.xxSmall)
+                // The name is the row's elastic element: it takes the width the
+                // row offers and truncates with an ellipsis when the name cannot
+                // fit, so the count capsule stays pinned to the trailing edge.
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             Text("\(count)")
                 .font(DesignTokens.Typography.caption2)
