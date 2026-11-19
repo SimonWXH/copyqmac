@@ -434,6 +434,15 @@ Tools. `tests/` contains a small assertion harness and the suites:
   and re-expand the sidebar, its Control-Command-S key equivalent routing
   through a real window, and its render pixel-identical between the expanded
   and collapsed states
+- sidebar tab row layout: the shipped tab rows filling the sidebar column at
+  the minimum, default, and maximum sidebar widths, a reorder through the
+  shipped `.onMove` handler keeping every row full width, a moved row left at
+  the content-hugging width a completed drag leaves replaced by a full-width
+  row (the reorder recreates the moved row's cell view instead of reusing it),
+  the selection following the moved tab, the row content filling whatever width
+  it is offered, and the rendered geometry with the name at the leading edge
+  truncating when it cannot fit and the count capsule pinned to the trailing
+  edge
 - column widths: the shared `ColumnWidthDraft`/`ColumnWidthDebouncer` rules
   exercised against both Layout B columns (a hidden or sub-minimum measurement
   rejected, a change within 0.5pt of the stored width ignored, a repeated or
@@ -471,9 +480,9 @@ well as the build; a tree with no built bundle skips that step.
 
 Most of the suite runs without a window server or a GUI session. The row-height
 and styled-editor tests lay out real AppKit views, and the editor focus, font
-picker, sync folder field, divider drag, shipped-layout window render, settings
-picker, and appearance tests create a window,
-so those need a window server. See [Architecture](architecture.md#layers) for
+picker, sync folder field, divider drag, shipped-layout window render, sidebar
+tab row layout, settings picker, and appearance tests create a window, so those
+need a window server. See [Architecture](architecture.md#layers) for
 the core/app boundary that keeps the rest of the suite independent of the app:
 
 ```sh
