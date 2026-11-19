@@ -911,7 +911,7 @@ func registerCopyQSyncResyncTests() {
             try store.updateTab(tab)
 
             let legacyDate = try unwrap(CopyQSyncItem.parseTimestamp(baseName: legacyStem), "legacy stem date")
-            let entry = try store.insert(ClipboardEntry(
+            _ = try store.insert(ClipboardEntry(
                 createdAt: legacyDate.addingTimeInterval(-0.3),
                 tabID: tab.id,
                 flavours: [
