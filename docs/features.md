@@ -163,8 +163,13 @@ Detailed reference for CopyQ Mac features, implementation behaviours, and data m
   macOS representations into a drag pasteboard: plain text, HTML or RTF, images, and
   file URLs, with legacy type names attached where older apps expect them.
   Multi-file entries keep every file and custom or bookkeeping payloads are not
-  exposed. Dropping the row on a tab chip still moves the selection because the
-  internal entry id travels with the standard types. See
+  exposed. A drop on Finder writes real files through a per-entry file promise: a
+  text entry arrives as a `.txt` named after its first line (sanitised for the
+  file system, `Text.txt` when that line leaves nothing usable), an image arrives
+  in the format it was copied in (`.png`, `.jpeg`, `.tiff`, `.heic`, `.gif`,
+  `.bmp`) rather than a `.textClipping` or a refused drop, and a copied-file entry
+  keeps copying the files themselves. Dropping the row on a tab chip still moves
+  the selection because the internal entry id travels with the standard types. See
   [Architecture](architecture.md#paste-back-path) for the drag pasteboard path.
 - **Activation (CopyQ's History ▸ Activation).** Activating an item - a double
   click, Return, or Item ▸ Activate - always copies it to the clipboard and then

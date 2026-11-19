@@ -56,6 +56,7 @@ registerColumnWidthTests()
 registerItemTextWrappingTests()
 registerTabContextMenuTests()
 registerEntryDragTests()
+registerEntryFilePromiseTests()
 registerBundleResourcesTests()
 
 print("CopyQmac core tests")

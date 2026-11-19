@@ -808,7 +808,24 @@ struct EntryListView: NSViewRepresentable {
             willBeginAt screenPoint: NSPoint,
             forRowIndexes rowIndexes: IndexSet
         ) {
-            writeDragData(forRowIndexes: rowIndexes, to: session.draggingPasteboard)
+            let pasteboard = session.draggingPasteboard
+            writeDragData(forRowIndexes: rowIndexes, to: pasteboard)
+            attachFilePromises(forRowIndexes: rowIndexes, to: pasteboard)
+        }
+
+        /// Adds one file promise per dragged entry so a drop on Finder writes
+        /// the entry's own bytes as a real file. The promise types are appended
+        /// beside the standard representations already on the pasteboard:
+        /// internal tab drops keep reading their own type, and other apps keep
+        /// their text, rich-text, and image data.
+        private func attachFilePromises(forRowIndexes rowIndexes: IndexSet, to pasteboard: NSPasteboard) {
+            let entries = rowIndexes.compactMap { row -> ClipboardEntry? in
+                guard parent.rows.indices.contains(row) else { return nil }
+                return parent.actions.entry(parent.rows[row].id)
+            }
+            let providers = EntryFilePromises.providers(for: entries)
+            guard !providers.isEmpty else { return }
+            pasteboard.writeObjects(providers)
         }
 
         func writeDragData(forRowIndexes rowIndexes: IndexSet, to pasteboard: NSPasteboard) {

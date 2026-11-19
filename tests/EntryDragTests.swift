@@ -432,7 +432,15 @@ func registerEntryDragTests() {
 
             expectEqual(pasteboard.string(forType: .init(PasteboardTypes.utf8Text)), text)
             expectEqual(pasteboard.string(forType: EntryDrag.pasteboardType), String(entryID))
-            expectEqual(pasteboard.pasteboardItems?.count, 1)
+            // The entry's own item plus the file promise that lets Finder write
+            // a real file; the promise must not duplicate or replace the item.
+            expectEqual(pasteboard.pasteboardItems?.count, 2)
+            expectEqual(
+                pasteboard.pasteboardItems?.filter {
+                    $0.types.map(\.rawValue).contains("com.apple.NSFilePromiseItemMetaData")
+                }.count,
+                1
+            )
         }
     }
 

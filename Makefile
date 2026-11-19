@@ -33,7 +33,7 @@ SWIFT_FLAGS := -target $(TARGET) -sdk $(SDK) -swift-version 5 -O -g -lz
 CORE_SOURCES  := $(wildcard core/*.swift) $(wildcard core/CopyQSync/Sources/CopyQSync/*.swift)
 APP_SOURCES   := $(wildcard app/*.swift)
 TEST_SOURCES  := $(wildcard tests/*.swift)
-TEST_APP_SOURCES := app/AppModel.swift app/EntryListView.swift app/RichTextPresentation.swift app/GlassSupport.swift \
+TEST_APP_SOURCES := app/AppModel.swift app/EntryListView.swift app/EntryFilePromiseProvider.swift app/RichTextPresentation.swift app/GlassSupport.swift \
                     app/SelectionState.swift app/PasteService.swift app/PasteTrust.swift \
                     app/ClipboardWatcher.swift \
                     app/AppActions.swift app/MainMenuBuilder.swift app/LaunchAtLogin.swift \
