@@ -98,7 +98,12 @@ Detailed reference for CopyQ Mac features, implementation behaviours, and data m
   way CopyQ shows it (not as the icon image Finder also puts on the pasteboard),
   while paste-back still pastes the real file.
 - **Search.** Case-insensitive substring search, including CJK text and file
-  names and paths, scoped to the current tab or across all tabs.
+  names and paths, scoped to the current tab or across all tabs. Typing plain
+  printable text over the main list or an unfocused window starts the same
+  filter query the search field edits and focuses that field, including a
+  space, non-ASCII text, and punctuation typed with Shift. Editors, the filter
+  itself, and the sidebar keep their own typing; mapped keys, Command
+  shortcuts, and plain digits keep their existing behaviour.
 - **Global hotkeys.** Option-V by default summons the window; a second
   shortcut, ⇧⌘V by default, pastes as plain text. Both are registered through
   Carbon so they need no Accessibility permission. They are configurable in
