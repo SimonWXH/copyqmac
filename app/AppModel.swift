@@ -641,6 +641,13 @@ final class AppModel: ObservableObject {
     /// Asks the main window to focus the search field.
     func focusSearch() { focusSearchToken += 1 }
 
+    /// Types into the same filter the search field edits, then hands the
+    /// keyboard to that field so the rest of the phrase lands there as usual.
+    func beginTypeToSearch(with text: String) {
+        searchText.append(text)
+        focusSearch()
+    }
+
     /// Asks the main window to focus the note editor.
     func focusNote() { focusNoteToken += 1 }
 

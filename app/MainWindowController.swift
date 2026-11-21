@@ -139,6 +139,11 @@ final class MainWindowController: NSObject, NSWindowDelegate, WindowControllerPr
             focus: { [weak self] in
                 self?.model.keyboardFocus ?? .none
             },
+            typeToSearch: { [weak self] text in
+                guard let self else { return false }
+                self.model.beginTypeToSearch(with: text)
+                return true
+            },
             handler: { [weak self] key, flags in
                 guard let self else { return false }
                 return self.handle(key, extending: flags.contains(.shift))
