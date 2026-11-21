@@ -1053,9 +1053,21 @@ menu-bar item available.
   the window's visibility. A gesture recognizer does not see the right click on an
   `NSStatusBarButton`, and the old synchronous `popUp(positioning:at:in:)` call
   deadlocked in its tracking loop.
-- `WindowKeyMonitor` is a local `keyDown` monitor over the key window. It maps
+- `WindowKeyMonitor` is a local `keyDown` monitor over the key window. It first
+  offers printable, unmodified typing to type-to-search, then maps remaining
   events to a `ListKey` and asks `ListInteractionPolicy` whether the window
-  should act: Up/Down/Page/Home/End always move the selection, while Return and
+  should act. `TypeToSearchPolicy` in `core/ListInteraction.swift` accepts plain
+  printable text over the list or an unfocused window and rejects editors, the
+  filter, the sidebar, and modified keystrokes; the monitor also refuses typing
+  when an `NSText` is the first responder, so a text control keeps its own
+  keystrokes while mapped list keys still reach the window. `AppModel` appends
+  the typed text to `searchText` and focuses the search field, so a phrase lands
+  in the filter even though the first character was consumed. Whitespace and
+  Shift-produced punctuation are text, while control characters are not: a
+  space starts a whitespace filter that Backspace edits, Shift-1 starts a `!`
+  search, and a plain digit remains quick paste. Keys already mapped to a
+  `ListKey` stay commands, except a Shift digit whose characters are punctuation.
+  Up/Down/Page/Home/End always move the selection, while Return and
   Backspace stay with the focused `PlainTextEditor` unless Escape is the one ending
   note editing. A focused Layout B sidebar keeps its Up/Down and Return keys,
   so the monitor passes those through to the tab list; Page/Home/End are answered
@@ -1064,9 +1076,11 @@ menu-bar item available.
   extends the range from the last plain click. Digit keys 1 through 9 become
   `ListKey.digit`; `ListInteractionPolicy` accepts them with Command or an empty
   search field, rejects other modifiers and note editing, and AppModel maps the
-  number to the visible row before pasting. Repeat events are dropped for
-  Return, Escape, Delete, and the digit keys, and deletion has a 0.3 s cooldown,
-  so holding a key cannot paste, close, or delete repeatedly.
+  number to the visible row before pasting. A whitespace-only query is now a
+  nonempty filter, so plain digits no longer quick-paste while it is active.
+  Repeat events are dropped for Return, Escape, Delete, and the digit keys, and
+  deletion has a 0.3 s cooldown, so holding a key cannot paste, close, or delete
+  repeatedly.
 - The list is a view-based `NSTableView` bridged through `NSViewRepresentable`
   (`EntryListView`). AppKit asks the data source only for on-screen rows, reuses
   cell views, and moves selection with `selectRowIndexes`, so neither a click

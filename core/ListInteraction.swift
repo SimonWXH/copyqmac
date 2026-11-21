@@ -37,6 +37,31 @@ public enum ListFocus: Equatable, Sendable {
     case sidebar
 }
 
+public enum TypeToSearchPolicy {
+    /// Whether printable text typed over the main window should become the
+    /// filter query. The list and an unfocused window can hand the text to the
+    /// filter; an editor, the filter itself, and the sidebar already own the
+    /// keyboard. `plainTyping` means no Command, Option, Control, or Function
+    /// key was held, so shortcuts keep their own keys.
+    public static func beginsSearch(
+        text: String?,
+        focus: ListFocus,
+        noteEditing: Bool,
+        plainTyping: Bool
+    ) -> Bool {
+        guard plainTyping, !noteEditing else { return false }
+        switch focus {
+        case .none, .itemList: break
+        case .filter, .sidebar: return false
+        }
+        guard let text, !text.isEmpty else { return false }
+        return text.unicodeScalars.allSatisfy { scalar in
+            let category = scalar.properties.generalCategory
+            return category != .control && category != .format
+        }
+    }
+}
+
 public enum ListInteractionPolicy {
     /// Keys that must always move the selection, whatever has keyboard focus.
     ///

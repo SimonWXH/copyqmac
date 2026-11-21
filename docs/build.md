@@ -344,8 +344,12 @@ Tools. `tests/` contains a small assertion harness and the suites:
   governing the paste notice, selection changes committing and blurring the note
   editor, search reloads and history eviction keeping note editing attached to a
   visible entry, keys the list keeps while the note editor is focused, which
-  row the list has to reveal, and quick paste by visible row number (Command
-  digits, plain digits in an empty search, and the modifier and editing guards)
+  row the list has to reveal, quick paste by visible row number (Command digits,
+  plain digits in an empty search, and the modifier and editing guards), and
+  type-to-search (plain text over the list or an unfocused window starting the
+  real filter and focusing the field, whitespace and shifted punctuation staying
+  as typed, editors, the filter, the sidebar and mapped keys keeping their own
+  behavior, and a window test driving real key events)
 - Paste as Plain Text: rich entries reduced to text, multi-item ordering,
   compressed-flavour decoding, the ⇧⌘V key equivalent reaching the action
   through the real menu builder, an image-only entry keeping the item enabled

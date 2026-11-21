@@ -71,7 +71,9 @@ approximation of it.
 - Saving an edit also rewrites that entry's file group in the sync folder, so the
   other machine updates the same item instead of seeing a duplicate.
 - Case-insensitive substring search, including CJK text, file names and paths, scoped
-  to the current tab or across all tabs.
+  to the current tab or across all tabs. Typing plain text over the main list
+  starts a search and focuses the search field; editors and the sidebar keep
+  their own typing, and mapped keys and shortcuts keep their behavior.
 
 ### Keyboard and paste-back
 

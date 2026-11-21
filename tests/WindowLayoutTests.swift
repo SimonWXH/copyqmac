@@ -1365,6 +1365,11 @@ private final class LayoutBWindowHarness {
             searchActive: { [weak model] in !(model?.searchText.isEmpty ?? true) },
             noteEditing: { [weak model] in model?.isEditingNote ?? false },
             focus: { [weak model] in model?.keyboardFocus ?? .none },
+            typeToSearch: { [weak model] text in
+                guard let model else { return false }
+                model.beginTypeToSearch(with: text)
+                return true
+            },
             handler: { [weak model] key, flags in
                 guard let model else { return false }
                 return MainWindowController.handle(key: key, model: model, extending: flags.contains(.shift))

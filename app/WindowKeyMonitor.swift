@@ -6,6 +6,7 @@ import Foundation
 final class WindowKeyMonitor {
     private var monitor: Any?
     private var handler: (@MainActor (ListKey, NSEvent.ModifierFlags) -> Bool)?
+    private var typeToSearch: (@MainActor (String) -> Bool)?
     private weak var window: NSWindow?
 
     func start(
@@ -13,27 +14,44 @@ final class WindowKeyMonitor {
         searchActive: @escaping @MainActor () -> Bool,
         noteEditing: @escaping @MainActor () -> Bool,
         focus: @escaping @MainActor () -> ListFocus,
+        typeToSearch: @escaping @MainActor (String) -> Bool,
         handler: @escaping @MainActor (ListKey, NSEvent.ModifierFlags) -> Bool
     ) {
         stop()
         self.window = window
         self.handler = handler
+        self.typeToSearch = typeToSearch
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // Local NSEvent monitors fire on the main thread; the annotation is
             // what lets this call into main-actor state. Returning Bool rather
             // than the event keeps the closure's result Sendable.
             let handled = MainActor.assumeIsolated { () -> Bool in
                 guard let self, let window = self.window, window.isKeyWindow else { return false }
-                guard let key = Self.map(event) else { return false }
                 let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                let plainTyping = flags.subtracting([.shift, .capsLock, .numericPad]).isEmpty
+                let currentFocus = focus()
+                let editing = noteEditing()
+                let textOwnsTyping = window.firstResponder is NSText
+                if let typed = Self.printableText(event),
+                   !textOwnsTyping,
+                   TypeToSearchPolicy.beginsSearch(
+                    text: typed,
+                    focus: currentFocus,
+                    noteEditing: editing,
+                    plainTyping: plainTyping
+                   )
+                {
+                    return self.typeToSearch?(typed) ?? false
+                }
+                guard let key = Self.map(event) else { return false }
                 let otherModifiers = !flags.subtracting([.command, .capsLock, .numericPad, .function]).isEmpty
                 guard ListInteractionPolicy.handles(
                     key,
-                    noteEditing: noteEditing(),
+                    noteEditing: editing,
                     searchEmpty: !searchActive(),
                     commandHeld: flags.contains(.command),
                     hasOtherModifiers: otherModifiers,
-                    focus: focus()
+                    focus: currentFocus
                 ) else { return false }
                 if event.isARepeat, ListInteractionPolicy.ignoresKeyRepeat(key) { return true }
                 return self.handler?(key, flags) ?? false
@@ -46,6 +64,7 @@ final class WindowKeyMonitor {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         handler = nil
+        typeToSearch = nil
     }
 
     deinit { stop() }
@@ -54,6 +73,27 @@ final class WindowKeyMonitor {
     /// the window should act on it; `ListInteractionPolicy` owns that decision.
     static func map(_ event: NSEvent) -> ListKey? {
         map(keyCode: Int(event.keyCode))
+    }
+
+    /// Whether the event's characters are printable text rather than a
+    /// navigation key, a control character, or a dead key. Search text is
+    /// taken from the event, the same text AppKit would deliver to a field.
+    static func printableText(_ event: NSEvent) -> String? {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let characters = event.characters ?? ""
+        guard !characters.isEmpty else { return nil }
+        if map(event) != nil {
+            let shiftedDigit = flags.contains(.shift)
+                && [kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5,
+                    kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9].contains(Int(event.keyCode))
+            guard shiftedDigit else { return nil }
+        }
+        return TypeToSearchPolicy.beginsSearch(
+            text: characters,
+            focus: .itemList,
+            noteEditing: false,
+            plainTyping: true
+        ) ? characters : nil
     }
 
     static func map(keyCode: Int) -> ListKey? {
