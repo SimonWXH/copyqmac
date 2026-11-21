@@ -108,6 +108,19 @@ func registerTypeToSearchTests() {
             return
         }
         expectEqual(WindowKeyMonitor.printableText(letter), "h")
+        guard let shiftedDigit = keyEvent(
+            code: kVK_ANSI_1,
+            characters: "!",
+            flags: .shift
+        ) else {
+            TestRunner.fail("could not build a shifted digit event")
+            return
+        }
+        expectEqual(
+            WindowKeyMonitor.printableText(shiftedDigit),
+            "!",
+            "shifted digit punctuation is search text, not quick paste"
+        )
 
         let mapped: [(Int, String)] = [
             (kVK_ANSI_1, "1"),
@@ -216,6 +229,57 @@ func registerTypeToSearchTests() {
                     "the window dispatches A while editing a note"
                 )
                 expectEqual(harness.model.searchText, "", "note editing keeps every plain character")
+            } catch {
+                TestRunner.fail("threw \(error)")
+            }
+        }
+    }
+
+    TestRunner.add("a whitespace filter owns editing keys and cannot delete a selected entry") {
+        MainActor.assumeIsolated {
+            do {
+                let harness = try TypeToSearchWindowHarness()
+                defer { harness.close() }
+
+                harness.model.setListFocused(true)
+                harness.model.selectFirst()
+                let selectedID = harness.model.selectedEntryID
+                expectNotNil(selectedID, "an entry is selected before typing")
+                let entryCount = harness.model.entries.count
+
+                harness.sendKey(code: kVK_Space, characters: " ")
+                expectEqual(harness.model.searchText, " ", "the typed space becomes filter text")
+
+                harness.sendKey(code: kVK_Delete, characters: "\u{8}")
+                expectEqual(harness.model.searchText, "", "Backspace edits the whitespace filter")
+                expectEqual(harness.model.entries.count, entryCount, "no entry was deleted")
+                expectEqual(harness.model.selectedEntryID, selectedID, "the selected entry is unchanged")
+
+                harness.model.searchText = " "
+                TypeToSearchWindowHarness.waitForReload()
+                harness.sendKey(code: kVK_ANSI_1, characters: "1")
+                expectEqual(harness.model.searchText, " 1", "a plain digit extends the filter")
+                TypeToSearchWindowHarness.waitForReload()
+                expectEqual(harness.model.entries.count, 0, "the filter excludes every entry")
+            } catch {
+                TestRunner.fail("threw \(error)")
+            }
+        }
+    }
+
+    TestRunner.add("shifted digit punctuation starts a real window search") {
+        MainActor.assumeIsolated {
+            do {
+                let harness = try TypeToSearchWindowHarness()
+                defer { harness.close() }
+
+                harness.model.setListFocused(true)
+                harness.sendKey(code: kVK_ANSI_1, characters: "!", flags: .shift)
+                expectEqual(
+                    harness.model.searchText,
+                    "!",
+                    "a real shifted digit starts a search with its punctuation"
+                )
             } catch {
                 TestRunner.fail("threw \(error)")
             }
@@ -406,6 +470,10 @@ private final class TypeToSearchWindowHarness {
         case .duplicate(let entry): return entry
         case .empty: throw UnwrapFailure()
         }
+    }
+
+    static func waitForReload() {
+        settle(0.2)
     }
 
     private static func settle(_ seconds: TimeInterval) {

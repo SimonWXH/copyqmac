@@ -131,7 +131,7 @@ final class MainWindowController: NSObject, NSWindowDelegate, WindowControllerPr
             window: window,
             searchActive: { [weak self] in
                 guard let self else { return false }
-                return !self.model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                return !self.model.searchText.isEmpty
             },
             noteEditing: { [weak self] in
                 self?.model.isEditingNote ?? false

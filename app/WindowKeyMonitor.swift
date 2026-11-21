@@ -79,9 +79,15 @@ final class WindowKeyMonitor {
     /// navigation key, a control character, or a dead key. Search text is
     /// taken from the event, the same text AppKit would deliver to a field.
     static func printableText(_ event: NSEvent) -> String? {
-        guard map(event) == nil else { return nil }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let characters = event.characters ?? ""
         guard !characters.isEmpty else { return nil }
+        if map(event) != nil {
+            let shiftedDigit = flags.contains(.shift)
+                && [kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5,
+                    kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9].contains(Int(event.keyCode))
+            guard shiftedDigit else { return nil }
+        }
         return TypeToSearchPolicy.beginsSearch(
             text: characters,
             focus: .itemList,
