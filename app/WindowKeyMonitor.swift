@@ -27,18 +27,17 @@ final class WindowKeyMonitor {
             // than the event keeps the closure's result Sendable.
             let handled = MainActor.assumeIsolated { () -> Bool in
                 guard let self, let window = self.window, window.isKeyWindow else { return false }
-                // A text control already owns its keystrokes, even when the
-                // focus token has not caught up (a sheet, a field editor, or
-                // the note view). Never type over an active editor.
-                if window.firstResponder is NSText { return false }
                 let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
                 let plainTyping = flags.subtracting([.shift, .capsLock, .numericPad]).isEmpty
                 let currentFocus = focus()
+                let editing = noteEditing()
+                let textOwnsTyping = window.firstResponder is NSText
                 if let typed = Self.printableText(event),
+                   !textOwnsTyping,
                    TypeToSearchPolicy.beginsSearch(
                     text: typed,
                     focus: currentFocus,
-                    noteEditing: noteEditing(),
+                    noteEditing: editing,
                     plainTyping: plainTyping
                    )
                 {
@@ -48,7 +47,7 @@ final class WindowKeyMonitor {
                 let otherModifiers = !flags.subtracting([.command, .capsLock, .numericPad, .function]).isEmpty
                 guard ListInteractionPolicy.handles(
                     key,
-                    noteEditing: noteEditing(),
+                    noteEditing: editing,
                     searchEmpty: !searchActive(),
                     commandHeld: flags.contains(.command),
                     hasOtherModifiers: otherModifiers,

@@ -222,6 +222,42 @@ func registerTypeToSearchTests() {
         }
     }
 
+    TestRunner.add("a text control keeps its typing without swallowing mapped list keys") {
+        MainActor.assumeIsolated {
+            do {
+                let harness = try TypeToSearchWindowHarness()
+                defer { harness.close() }
+
+                harness.model.setListFocused(true)
+                harness.model.selectFirst()
+                let firstID = harness.model.selectedEntryID
+                expectNotNil(firstID, "the list has a selected entry")
+                expect(harness.focusTextEditor(), "a text control can take keyboard focus")
+
+                harness.sendKey(code: kVK_ANSI_H, characters: "h")
+                expectEqual(harness.model.searchText, "", "the text control keeps plain typing")
+
+                harness.sendKey(code: kVK_DownArrow, characters: "\u{F701}")
+                expectNotEqual(
+                    harness.model.selectedEntryID,
+                    firstID,
+                    "Down still moves the list while a text control owns typing"
+                )
+
+                harness.model.searchText = "z"
+                harness.sendKey(code: kVK_Escape, characters: "\u{1B}")
+                expectEqual(harness.model.searchText, "", "Escape still clears the filter from a text control")
+
+                harness.model.setNoteEditing(true)
+                expect(harness.model.isEditingNote, "note editing is active")
+                harness.sendKey(code: kVK_Escape, characters: "\u{1B}")
+                expectEqual(harness.model.isEditingNote, false, "Escape still leaves the note editor")
+            } catch {
+                TestRunner.fail("threw \(error)")
+            }
+        }
+    }
+
     TestRunner.add("mapped list keys keep their old behavior while type-to-search is available") {
         MainActor.assumeIsolated {
             do {
@@ -347,6 +383,15 @@ private final class TypeToSearchWindowHarness {
         NSApp.sendEvent(event)
         Self.settle(0.3)
         return true
+    }
+
+    @discardableResult
+    func focusTextEditor() -> Bool {
+        let editor = NSTextView(frame: NSRect(origin: .zero, size: NSSize(width: 100, height: 20)))
+        editor.isEditable = true
+        hosting.addSubview(editor)
+        window.makeFirstResponder(editor)
+        return window.firstResponder === editor
     }
 
     func close() {
